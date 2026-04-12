@@ -8,6 +8,8 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -82,6 +84,63 @@ public class EmailAnalysis {
     private LocalDateTime updatedAt;
 
     protected EmailAnalysis() {
+    }
+
+    public EmailAnalysis(
+            String id,
+            EmailMessage email,
+            int analysisVersion,
+            String modelName,
+            String promptVersion,
+            String shortSummary,
+            String detailedSummary,
+            String category,
+            String priorityLevel,
+            BigDecimal importanceScore,
+            BigDecimal urgencyScore,
+            BigDecimal confidenceScore,
+            Boolean needsReply,
+            Boolean hasDeadline,
+            LocalDateTime deadlineAt,
+            String suggestedAction,
+            String reasoning
+    ) {
+        this.id = id;
+        this.email = email;
+        this.analysisVersion = analysisVersion;
+        this.isLatest = true;
+        this.modelName = modelName;
+        this.promptVersion = promptVersion;
+        this.shortSummary = shortSummary;
+        this.detailedSummary = detailedSummary;
+        this.category = category;
+        this.priorityLevel = priorityLevel;
+        this.importanceScore = importanceScore;
+        this.urgencyScore = urgencyScore;
+        this.confidenceScore = confidenceScore;
+        this.needsReply = needsReply;
+        this.hasDeadline = hasDeadline;
+        this.deadlineAt = deadlineAt;
+        this.suggestedAction = suggestedAction;
+        this.reasoning = reasoning;
+        this.status = "COMPLETED";
+        this.analyzedAt = LocalDateTime.now();
+    }
+
+    @PrePersist
+    void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        createdAt = now;
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+    public void markNotLatest() {
+        this.isLatest = false;
     }
 
     public String getId() {

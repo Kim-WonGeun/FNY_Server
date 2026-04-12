@@ -69,6 +69,20 @@ public class AnalysisJob {
         this.maxRetries = 3;
     }
 
+    public void complete(String workerId) {
+        this.status = "COMPLETED";
+        this.workerId = workerId;
+        this.errorMessage = null;
+        if (this.startedAt == null) {
+            this.startedAt = LocalDateTime.now();
+        }
+        this.completedAt = LocalDateTime.now();
+    }
+
+    public EmailMessage getEmail() {
+        return email;
+    }
+
     @PrePersist
     void onCreate() {
         LocalDateTime now = LocalDateTime.now();

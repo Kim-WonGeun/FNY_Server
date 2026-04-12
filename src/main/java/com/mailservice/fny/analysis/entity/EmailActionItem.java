@@ -6,6 +6,8 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
@@ -42,6 +44,35 @@ public class EmailActionItem {
     private LocalDateTime updatedAt;
 
     protected EmailActionItem() {
+    }
+
+    public EmailActionItem(
+            String id,
+            EmailAnalysis analysis,
+            String actionText,
+            String actionType,
+            String priorityLevel,
+            LocalDateTime dueAt
+    ) {
+        this.id = id;
+        this.analysis = analysis;
+        this.actionText = actionText;
+        this.actionType = actionType;
+        this.priorityLevel = priorityLevel;
+        this.dueAt = dueAt;
+        this.isCompleted = false;
+    }
+
+    @PrePersist
+    void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        createdAt = now;
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 
     public String getId() {

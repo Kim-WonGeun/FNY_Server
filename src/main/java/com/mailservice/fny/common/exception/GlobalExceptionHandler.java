@@ -1,5 +1,6 @@
 package com.mailservice.fny.common.exception;
 
+import com.mailservice.fny.analysis.exception.AnalysisJobNotFoundException;
 import com.mailservice.fny.integration.mail.exception.MailDeliveryException;
 import com.mailservice.fny.integration.mail.exception.MailIntegrationNotFoundException;
 import com.mailservice.fny.mailbox.exception.MailboxNotFoundException;
@@ -23,6 +24,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleMailboxNotFound(MailboxNotFoundException exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ApiErrorResponse("MAILBOX_RESOURCE_NOT_FOUND", exception.getMessage(), LocalDateTime.now()));
+    }
+
+    @ExceptionHandler(AnalysisJobNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleAnalysisJobNotFound(AnalysisJobNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiErrorResponse("ANALYSIS_JOB_NOT_FOUND", exception.getMessage(), LocalDateTime.now()));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiErrorResponse> handleIllegalArgument(IllegalArgumentException exception) {
+        return ResponseEntity.badRequest()
+                .body(new ApiErrorResponse("INVALID_REQUEST", exception.getMessage(), LocalDateTime.now()));
     }
 
     @ExceptionHandler(MailDeliveryException.class)

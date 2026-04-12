@@ -9,6 +9,8 @@ public interface EmailAnalysisRepository extends JpaRepository<EmailAnalysis, St
 
     Optional<EmailAnalysis> findByEmailIdAndIsLatestTrue(String emailId);
 
+    Optional<EmailAnalysis> findTopByEmailIdOrderByAnalysisVersionDesc(String emailId);
+
     long countByEmailMailAccountUserIdAndIsLatestTrueAndNeedsReplyTrue(String userId);
 
     long countByEmailMailAccountUserIdAndIsLatestTrueAndPriorityLevelIn(String userId, Collection<String> priorityLevels);
