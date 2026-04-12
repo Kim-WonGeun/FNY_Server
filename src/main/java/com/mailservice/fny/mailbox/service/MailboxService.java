@@ -9,6 +9,7 @@ import com.mailservice.fny.analysis.entity.AnalysisJob;
 import com.mailservice.fny.analysis.repository.AnalysisJobRepository;
 import com.mailservice.fny.analysis.repository.EmailActionItemRepository;
 import com.mailservice.fny.analysis.repository.EmailAnalysisRepository;
+import com.mailservice.fny.analysis.service.AnalysisAgentService;
 import com.mailservice.fny.mailbox.dto.EmailDetailResponse;
 import com.mailservice.fny.mailbox.dto.EmailLabelResponse;
 import com.mailservice.fny.mailbox.dto.EmailListResponse;
@@ -42,6 +43,7 @@ public class MailboxService {
     private final EmailActionItemRepository emailActionItemRepository;
     private final EmailLabelRepository emailLabelRepository;
     private final AnalysisJobRepository analysisJobRepository;
+    private final AnalysisAgentService analysisAgentService;
     private final IdGenerator idGenerator;
 
     public MailboxService(
@@ -53,6 +55,7 @@ public class MailboxService {
             EmailActionItemRepository emailActionItemRepository,
             EmailLabelRepository emailLabelRepository,
             AnalysisJobRepository analysisJobRepository,
+            AnalysisAgentService analysisAgentService,
             IdGenerator idGenerator
     ) {
         this.appUserRepository = appUserRepository;
@@ -63,6 +66,7 @@ public class MailboxService {
         this.emailActionItemRepository = emailActionItemRepository;
         this.emailLabelRepository = emailLabelRepository;
         this.analysisJobRepository = analysisJobRepository;
+        this.analysisAgentService = analysisAgentService;
         this.idGenerator = idGenerator;
     }
 
@@ -171,7 +175,11 @@ public class MailboxService {
         );
 
         analysisJobRepository.save(job);
-        return new AnalysisJobCreateResponse(job.getId(), job.getStatus(), "분석 작업이 큐에 등록되었습니다.");
+        boolean completed = analysisAgentService.analyzeAndStore(job);
+        String message = completed ? "분석 작업이 완료되었습니다." : "분석 작업이 큐에 등록되었습니다.";
+        String status = completed ? "COMPLETED" : job.getStatus();
+
+        return new AnalysisJobCreateResponse(job.getId(), status, message);
     }
 
     private void ensureUserExists(String userId) {

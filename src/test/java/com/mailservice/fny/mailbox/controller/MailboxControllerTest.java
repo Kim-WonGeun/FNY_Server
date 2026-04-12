@@ -15,7 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
-@SpringBootTest
+@SpringBootTest(properties = "fny.agent.enabled=false")
 @AutoConfigureMockMvc
 @Transactional
 class MailboxControllerTest {
