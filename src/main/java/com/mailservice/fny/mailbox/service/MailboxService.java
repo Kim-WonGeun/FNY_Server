@@ -34,6 +34,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class MailboxService {
 
     private static final Set<String> HIGH_PRIORITY_LEVELS = Set.of("P1", "P2");
+    private static final Set<String> OPEN_ANALYSIS_JOB_STATUSES = Set.of(
+            AnalysisJob.STATUS_PENDING,
+            AnalysisJob.STATUS_RUNNING,
+            AnalysisJob.STATUS_WAITING_AGENT
+    );
 
     private final AppUserRepository appUserRepository;
     private final MailAccountRepository mailAccountRepository;
@@ -79,17 +84,18 @@ public class MailboxService {
 
     public List<EmailListResponse> getInbox(String userId, boolean unreadOnly, boolean highPriorityOnly, boolean needsReplyOnly) {
         ensureUserExists(userId);
-        return emailMessageRepository.findInboxByUserId(userId).stream()
+        return emailMessageRepository.findMailboxByUserId(userId).stream()
                 .filter(email -> !unreadOnly || !email.isRead())
-                .filter(email -> !highPriorityOnly || HIGH_PRIORITY_LEVELS.contains(email.priorityLevel()))
-                .filter(email -> !needsReplyOnly || Boolean.TRUE.equals(email.needsReply()))
+                .filter(email -> !highPriorityOnly || (isOpenAttention(email) && isHighPriority(email.priorityLevel())))
+                .filter(email -> !needsReplyOnly || (isOpenAttention(email) && Boolean.TRUE.equals(email.needsReply())))
                 .map(EmailListResponse::from)
                 .toList();
     }
 
     public MailboxOverviewResponse getOverview(String userId) {
         ensureUserExists(userId);
-        List<EmailListResponse> spotlightEmails = emailMessageRepository.findInboxByUserId(userId).stream()
+        List<InboxEmailSummary> inboxEmails = emailMessageRepository.findInboxByUserId(userId);
+        List<EmailListResponse> spotlightEmails = inboxEmails.stream()
                 .filter(this::isSpotlightCandidate)
                 .limit(5)
                 .map(EmailListResponse::from)
@@ -99,9 +105,15 @@ public class MailboxService {
                 userId,
                 emailMessageRepository.countByMailAccountUserId(userId),
                 emailMessageRepository.countByMailAccountUserIdAndIsReadFalse(userId),
-                emailAnalysisRepository.countByEmailMailAccountUserIdAndIsLatestTrueAndNeedsReplyTrue(userId),
-                emailAnalysisRepository.countByEmailMailAccountUserIdAndIsLatestTrueAndPriorityLevelIn(userId, HIGH_PRIORITY_LEVELS),
-                analysisJobRepository.countByEmailMailAccountUserIdAndStatus(userId, "PENDING"),
+                inboxEmails.stream()
+                        .filter(this::isOpenAttention)
+                        .filter(email -> Boolean.TRUE.equals(email.needsReply()))
+                        .count(),
+                inboxEmails.stream()
+                        .filter(this::isOpenAttention)
+                        .filter(email -> isHighPriority(email.priorityLevel()))
+                        .count(),
+                analysisJobRepository.countByEmailMailAccountUserIdAndStatusIn(userId, OPEN_ANALYSIS_JOB_STATUSES),
                 spotlightEmails
         );
     }
@@ -153,6 +165,15 @@ public class MailboxService {
                 email.isStarred(),
                 email.isHasAttachment(),
                 email.getImportanceHeader(),
+                email.isAnalysisEligible(),
+                email.getAnalysisCandidateScore(),
+                email.getAnalysisCandidateReasons(),
+                email.getAnalysisSkippedReason(),
+                email.getAnalysisCandidateEvaluatedAt(),
+                email.isAttentionResolved(),
+                email.getAttentionResolvedAt(),
+                email.getAttentionStatus(),
+                email.getAttentionStatusUpdatedAt(),
                 analysis,
                 recipients,
                 labels,
@@ -170,16 +191,43 @@ public class MailboxService {
                 idGenerator.generate("JOB"),
                 email,
                 "EMAIL_ANALYSIS",
-                "PENDING",
+                AnalysisJob.STATUS_PENDING,
                 resolvePriority(emailId)
         );
 
         analysisJobRepository.save(job);
         boolean completed = analysisAgentService.analyzeAndStore(job);
-        String message = completed ? "분석 작업이 완료되었습니다." : "분석 작업이 큐에 등록되었습니다.";
-        String status = completed ? "COMPLETED" : job.getStatus();
+        String message = completed ? "분석 작업이 완료되었습니다." : resolveAnalysisJobMessage(job);
+        String status = completed ? AnalysisJob.STATUS_COMPLETED : job.getStatus();
 
         return new AnalysisJobCreateResponse(job.getId(), status, message);
+    }
+
+    @Transactional
+    public EmailDetailResponse updateAttentionResolved(String emailId, boolean resolved) {
+        EmailMessage email = emailMessageRepository.findById(emailId)
+                .orElseThrow(() -> new MailboxNotFoundException("메일을 찾을 수 없습니다. id=" + emailId));
+        email.updateAttentionResolved(resolved);
+        return getEmailDetail(emailId);
+    }
+
+    @Transactional
+    public EmailDetailResponse updateAttentionStatus(String emailId, String status) {
+        EmailMessage email = emailMessageRepository.findById(emailId)
+                .orElseThrow(() -> new MailboxNotFoundException("메일을 찾을 수 없습니다. id=" + emailId));
+        email.updateAttentionStatus(status);
+        return getEmailDetail(emailId);
+    }
+
+    private String resolveAnalysisJobMessage(AnalysisJob job) {
+        return switch (job.getStatus()) {
+            case AnalysisJob.STATUS_WAITING_AGENT -> "Agent 서버가 준비되면 분석할 수 있습니다.";
+            case AnalysisJob.STATUS_FAILED -> job.getErrorMessage() == null
+                    ? "분석 작업이 실패했습니다."
+                    : job.getErrorMessage();
+            case AnalysisJob.STATUS_RUNNING -> "분석 작업이 진행 중입니다.";
+            default -> "분석 작업이 큐에 등록되었습니다.";
+        };
     }
 
     private void ensureUserExists(String userId) {
@@ -189,10 +237,19 @@ public class MailboxService {
     }
 
     private boolean isSpotlightCandidate(InboxEmailSummary email) {
-        return HIGH_PRIORITY_LEVELS.contains(email.priorityLevel())
+        return isOpenAttention(email)
+                && (isHighPriority(email.priorityLevel())
                 || Boolean.TRUE.equals(email.needsReply())
                 || !email.isRead()
-                || email.isStarred();
+                || email.isStarred());
+    }
+
+    private boolean isOpenAttention(InboxEmailSummary email) {
+        return !EmailMessage.isClosedAttentionStatus(email.attentionStatus());
+    }
+
+    private static boolean isHighPriority(String priorityLevel) {
+        return priorityLevel != null && HIGH_PRIORITY_LEVELS.contains(priorityLevel);
     }
 
     private int resolvePriority(String emailId) {

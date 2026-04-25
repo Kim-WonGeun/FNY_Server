@@ -12,6 +12,7 @@ import com.mailservice.fny.analysis.repository.EmailActionItemRepository;
 import com.mailservice.fny.analysis.repository.EmailAnalysisRepository;
 import com.mailservice.fny.common.IdGenerator;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,6 +68,13 @@ public class AnalysisResultService {
                 request.needsReply(),
                 request.hasDeadline(),
                 request.deadlineAt(),
+                request.deadlineText(),
+                request.timeSensitivity(),
+                request.requiresAction(),
+                request.userTaskSummary(),
+                request.priorityReasonCodes() == null ? null : request.priorityReasonCodes().stream()
+                        .filter(code -> code != null && !code.isBlank())
+                        .collect(Collectors.joining(",")),
                 request.suggestedAction(),
                 request.reasoning()
         );

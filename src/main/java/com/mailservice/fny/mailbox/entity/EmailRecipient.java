@@ -6,6 +6,8 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 
@@ -37,6 +39,32 @@ public class EmailRecipient {
     private LocalDateTime updatedAt;
 
     protected EmailRecipient() {
+    }
+
+    public EmailRecipient(
+            String id,
+            EmailMessage email,
+            String recipientType,
+            String recipientName,
+            String recipientEmail
+    ) {
+        this.id = id;
+        this.email = email;
+        this.recipientType = recipientType;
+        this.recipientName = recipientName;
+        this.recipientEmail = recipientEmail;
+    }
+
+    @PrePersist
+    void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        createdAt = now;
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 
     public String getRecipientType() {

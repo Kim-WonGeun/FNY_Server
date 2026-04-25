@@ -3,10 +3,12 @@ package com.mailservice.fny.mailbox.controller;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,6 +16,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(properties = "fny.agent.enabled=false")
 @AutoConfigureMockMvc
@@ -23,16 +27,19 @@ class MailboxControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @Test
     void overviewReturnsAggregatedMailboxMetrics() throws Exception {
         mockMvc.perform(get("/api/users/USR_260409_A00001/overview"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.userId", is("USR_260409_A00001")))
-                .andExpect(jsonPath("$.totalEmails", is(3)))
-                .andExpect(jsonPath("$.unreadEmails", is(2)))
+                .andExpect(jsonPath("$.totalEmails", is(100)))
+                .andExpect(jsonPath("$.unreadEmails", is(67)))
                 .andExpect(jsonPath("$.needsReplyEmails", is(2)))
                 .andExpect(jsonPath("$.highPriorityEmails", is(3)))
-                .andExpect(jsonPath("$.spotlightEmails", hasSize(3)));
+                .andExpect(jsonPath("$.spotlightEmails", hasSize(5)));
     }
 
     @Test
@@ -47,10 +54,19 @@ class MailboxControllerTest {
     }
 
     @Test
+    void mailboxReturnsAllEmailsByDefault() throws Exception {
+        mockMvc.perform(get("/api/users/USR_260409_A00001/emails"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(100)));
+    }
+
+    @Test
     void emailDetailReturnsAnalysisLabelsAndJobs() throws Exception {
         mockMvc.perform(get("/api/emails/EML_260409_A00006"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id", is("EML_260409_A00006")))
+                .andExpect(jsonPath("$.attentionResolved", is(false)))
+                .andExpect(jsonPath("$.attentionStatus", is("NEEDS_ATTENTION")))
                 .andExpect(jsonPath("$.analysis.category", is("URGENT")))
                 .andExpect(jsonPath("$.labels[0].code", is("URGENT")))
                 .andExpect(jsonPath("$.analysisJobs", hasSize(1)))
@@ -58,10 +74,33 @@ class MailboxControllerTest {
     }
 
     @Test
+    void resolvedAttentionEmailIsRemovedFromPrioritySurface() throws Exception {
+        mockMvc.perform(patch("/api/emails/EML_260409_A00001/attention-status")
+                        .param("status", "COMPLETED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attentionResolved", is(true)))
+                .andExpect(jsonPath("$.attentionResolvedAt").exists())
+                .andExpect(jsonPath("$.attentionStatus", is("COMPLETED")))
+                .andExpect(jsonPath("$.attentionStatusUpdatedAt").exists());
+
+        mockMvc.perform(get("/api/users/USR_260409_A00001/overview"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.needsReplyEmails", is(1)))
+                .andExpect(jsonPath("$.highPriorityEmails", is(2)))
+                .andExpect(jsonPath("$.spotlightEmails[?(@.id == 'EML_260409_A00001')]", hasSize(0)));
+
+        mockMvc.perform(patch("/api/emails/EML_260409_A00001/attention-status")
+                        .param("status", "NEEDS_ATTENTION"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attentionResolved", is(false)))
+                .andExpect(jsonPath("$.attentionStatus", is("NEEDS_ATTENTION")));
+    }
+
+    @Test
     void queueAnalysisJobCreatesPendingJob() throws Exception {
         mockMvc.perform(post("/api/emails/EML_260409_A00001/analysis-jobs"))
                 .andExpect(status().isAccepted())
-                .andExpect(jsonPath("$.status", is("PENDING")))
+                .andExpect(jsonPath("$.status", is("WAITING_AGENT")))
                 .andExpect(jsonPath("$.jobId").exists());
     }
 
@@ -104,5 +143,48 @@ class MailboxControllerTest {
                 .andExpect(jsonPath("$.analysis.category", is("URGENT")))
                 .andExpect(jsonPath("$.analysis.priorityLevel", is("P1")))
                 .andExpect(jsonPath("$.actionItems[0].actionType", is("REPLY")));
+    }
+
+    @Test
+    void generateWeeklyReportSummarizesRecentMailbox() throws Exception {
+        var result = mockMvc.perform(post("/api/users/USR_260409_A00001/mail-accounts/MAC_260409_A00001/weekly-reports")
+                        .param("startDate", LocalDate.now().minusDays(1).toString())
+                .param("endDate", LocalDate.now().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.emailCount", is(100)))
+                .andExpect(jsonPath("$.mailAccountId", is("MAC_260409_A00001")))
+                .andExpect(jsonPath("$.source", is("FALLBACK")))
+                .andExpect(jsonPath("$.highlights", hasSize(2)))
+                .andExpect(jsonPath("$.risksBlockers", hasSize(1)))
+                .andExpect(jsonPath("$.nextWeekSuggestions", hasSize(1)))
+                .andExpect(jsonPath("$.threadSummaries", hasSize(40)))
+                .andReturn();
+
+        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+        String reportId = body.get("reportId").asText();
+
+        mockMvc.perform(get("/api/users/USR_260409_A00001/weekly-reports/" + reportId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reportId", is(reportId)))
+                .andExpect(jsonPath("$.emailCount", is(100)));
+
+        mockMvc.perform(get("/api/users/USR_260409_A00001/mail-accounts/MAC_260409_A00001/weekly-reports"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].reportId", is(reportId)));
+    }
+
+    @Test
+    void generateWeeklyReportRejectsForeignMailAccount() throws Exception {
+        mockMvc.perform(post("/api/users/USR_260409_A00002/mail-accounts/MAC_260409_A00001/weekly-reports"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void generateWeeklyReportRejectsInvalidPeriod() throws Exception {
+        mockMvc.perform(post("/api/users/USR_260409_A00001/mail-accounts/MAC_260409_A00001/weekly-reports")
+                        .param("startDate", LocalDate.now().toString())
+                        .param("endDate", LocalDate.now().minusDays(1).toString()))
+                .andExpect(status().isBadRequest());
     }
 }

@@ -22,6 +22,11 @@ public record AnalysisResultRequest(
         @JsonAlias("needs_reply") Boolean needsReply,
         @JsonAlias("has_deadline") Boolean hasDeadline,
         @JsonAlias("deadline_at") LocalDateTime deadlineAt,
+        @JsonAlias("deadline_text") String deadlineText,
+        @JsonAlias("time_sensitivity") String timeSensitivity,
+        @JsonAlias("requires_action") Boolean requiresAction,
+        @JsonAlias("user_task_summary") String userTaskSummary,
+        @JsonAlias("priority_reason_codes") List<String> priorityReasonCodes,
         @JsonAlias("suggested_action") String suggestedAction,
         String reasoning,
         @JsonAlias("action_items") @Valid List<AnalysisActionItemRequest> actionItems

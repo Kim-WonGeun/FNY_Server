@@ -11,5 +11,9 @@ public interface MailAccountRepository extends JpaRepository<MailAccount, String
 
     Optional<MailAccount> findByProviderAndProviderAccountId(String provider, String providerAccountId);
 
+    Optional<MailAccount> findByProviderAndAccountEmailIgnoreCase(String provider, String accountEmail);
+
+    Optional<MailAccount> findByIdAndUser_Id(String id, String userId);
+
     long countByUserId(String userId);
 }

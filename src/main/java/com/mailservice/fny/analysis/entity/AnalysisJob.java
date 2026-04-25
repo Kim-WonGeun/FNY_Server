@@ -17,6 +17,12 @@ import java.time.LocalDateTime;
 @Table(name = "analysis_jobs")
 public class AnalysisJob {
 
+    public static final String STATUS_PENDING = "PENDING";
+    public static final String STATUS_RUNNING = "RUNNING";
+    public static final String STATUS_COMPLETED = "COMPLETED";
+    public static final String STATUS_FAILED = "FAILED";
+    public static final String STATUS_WAITING_AGENT = "WAITING_AGENT";
+
     @Id
     @Column(length = 20)
     private String id;
@@ -70,9 +76,35 @@ public class AnalysisJob {
     }
 
     public void complete(String workerId) {
-        this.status = "COMPLETED";
+        this.status = STATUS_COMPLETED;
         this.workerId = workerId;
         this.errorMessage = null;
+        if (this.startedAt == null) {
+            this.startedAt = LocalDateTime.now();
+        }
+        this.completedAt = LocalDateTime.now();
+    }
+
+    public void start(String workerId) {
+        this.status = STATUS_RUNNING;
+        this.workerId = workerId;
+        this.errorMessage = null;
+        this.startedAt = LocalDateTime.now();
+        this.completedAt = null;
+    }
+
+    public void waitForAgent(String message) {
+        this.status = STATUS_WAITING_AGENT;
+        this.workerId = null;
+        this.errorMessage = message;
+        this.startedAt = null;
+        this.completedAt = null;
+    }
+
+    public void fail(String message) {
+        this.status = STATUS_FAILED;
+        this.retryCount++;
+        this.errorMessage = message;
         if (this.startedAt == null) {
             this.startedAt = LocalDateTime.now();
         }

@@ -66,6 +66,20 @@ public class EmailAnalysis {
     private LocalDateTime deadlineAt;
 
     @Column(length = 255)
+    private String deadlineText;
+
+    @Column(length = 30)
+    private String timeSensitivity;
+
+    private Boolean requiresAction;
+
+    @Column(length = 1000)
+    private String userTaskSummary;
+
+    @Column(length = 1000)
+    private String priorityReasonCodes;
+
+    @Column(length = 255)
     private String suggestedAction;
 
     @Column(columnDefinition = "CLOB")
@@ -102,6 +116,11 @@ public class EmailAnalysis {
             Boolean needsReply,
             Boolean hasDeadline,
             LocalDateTime deadlineAt,
+            String deadlineText,
+            String timeSensitivity,
+            Boolean requiresAction,
+            String userTaskSummary,
+            String priorityReasonCodes,
             String suggestedAction,
             String reasoning
     ) {
@@ -121,6 +140,11 @@ public class EmailAnalysis {
         this.needsReply = needsReply;
         this.hasDeadline = hasDeadline;
         this.deadlineAt = deadlineAt;
+        this.deadlineText = deadlineText;
+        this.timeSensitivity = timeSensitivity;
+        this.requiresAction = requiresAction;
+        this.userTaskSummary = userTaskSummary;
+        this.priorityReasonCodes = priorityReasonCodes;
         this.suggestedAction = suggestedAction;
         this.reasoning = reasoning;
         this.status = "COMPLETED";
@@ -201,6 +225,26 @@ public class EmailAnalysis {
 
     public LocalDateTime getDeadlineAt() {
         return deadlineAt;
+    }
+
+    public String getDeadlineText() {
+        return deadlineText;
+    }
+
+    public String getTimeSensitivity() {
+        return timeSensitivity;
+    }
+
+    public Boolean getRequiresAction() {
+        return requiresAction;
+    }
+
+    public String getUserTaskSummary() {
+        return userTaskSummary;
+    }
+
+    public String getPriorityReasonCodes() {
+        return priorityReasonCodes;
     }
 
     public String getSuggestedAction() {

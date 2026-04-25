@@ -2,6 +2,7 @@ package com.mailservice.fny.analysis.infrastructure;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.mailservice.fny.mailbox.entity.EmailMessage;
+import java.util.Objects;
 
 public record AgentAnalysisRequest(
         @JsonProperty("email_id") String emailId,
@@ -15,11 +16,18 @@ public record AgentAnalysisRequest(
     public static AgentAnalysisRequest from(EmailMessage email) {
         return new AgentAnalysisRequest(
                 email.getId(),
-                email.getSubject(),
-                email.getBodyText(),
-                email.getFromEmail(),
+                Objects.toString(email.getSubject(), ""),
+                resolveBody(email),
+                Objects.toString(email.getFromEmail(), ""),
                 email.getReceivedAt().toString(),
                 "ko"
         );
+    }
+
+    private static String resolveBody(EmailMessage email) {
+        if (email.getBodyText() != null && !email.getBodyText().isBlank()) {
+            return email.getBodyText();
+        }
+        return Objects.toString(email.getMessageSnippet(), "");
     }
 }

@@ -9,10 +9,23 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "mail_accounts")
+@Table(
+        name = "mail_accounts",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_mail_accounts_provider_provider_account",
+                        columnNames = {"provider", "provider_account_id"}
+                ),
+                @UniqueConstraint(
+                        name = "uk_mail_accounts_provider_account_email",
+                        columnNames = {"provider", "account_email"}
+                )
+        }
+)
 public class MailAccount {
 
     @Id
@@ -111,6 +124,15 @@ public class MailAccount {
         this.syncStatus = "ACTIVE";
     }
 
+    public void updateProviderAccountId(String providerAccountId) {
+        this.providerAccountId = providerAccountId;
+    }
+
+    public void markSynced(LocalDateTime syncedAt) {
+        this.lastSyncedAt = syncedAt;
+        this.syncStatus = "ACTIVE";
+    }
+
     public String getId() {
         return id;
     }
@@ -145,6 +167,14 @@ public class MailAccount {
 
     public String getSyncStatus() {
         return syncStatus;
+    }
+
+    public String getAccessTokenEncrypted() {
+        return accessTokenEncrypted;
+    }
+
+    public String getRefreshTokenEncrypted() {
+        return refreshTokenEncrypted;
     }
 
     public LocalDateTime getTokenExpiresAt() {

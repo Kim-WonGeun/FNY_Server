@@ -29,34 +29,43 @@ public class OAuthAccountService {
     }
 
     public AuthSessionResponse provisionAccount(OAuthProvisionRequest request) {
-        AppUser user = appUserRepository.findByPrimaryEmail(request.accountEmail())
+        String provider = normalizeProvider(request.provider());
+        String providerAccountId = request.providerAccountId().trim();
+        String accountEmail = request.accountEmail().trim();
+        String accountName = request.accountName().trim();
+
+        AppUser user = appUserRepository.findByPrimaryEmail(accountEmail)
                 .map(existing -> {
-                    existing.updateLoginProfile(request.accountName(), request.accountEmail());
+                    existing.updateLoginProfile(accountName, accountEmail);
                     return existing;
                 })
                 .orElseGet(() -> appUserRepository.save(new AppUser(
                         idGenerator.generate("USR"),
-                        request.accountName(),
-                        request.accountEmail(),
+                        accountName,
+                        accountEmail,
                         "ACTIVE",
                         java.time.LocalDateTime.now()
                 )));
 
         MailAccount account = mailAccountRepository
-                .findByProviderAndProviderAccountId(normalizeProvider(request.provider()), request.providerAccountId())
+                .findByProviderAndProviderAccountId(provider, providerAccountId)
+                .or(() -> mailAccountRepository.findByProviderAndAccountEmailIgnoreCase(provider, accountEmail))
                 .orElseGet(() -> mailAccountRepository.save(new MailAccount(
                         idGenerator.generate("MAC"),
                         user,
-                        normalizeProvider(request.provider()),
-                        request.providerAccountId(),
-                        request.accountEmail(),
-                        request.accountName(),
+                        provider,
+                        providerAccountId,
+                        accountEmail,
+                        accountName,
                         mailAccountRepository.countByUserId(user.getId()) == 0
                 )));
 
+        if (!account.getProviderAccountId().equals(providerAccountId)) {
+            account.updateProviderAccountId(providerAccountId);
+        }
         account.updateConnection(
-                request.accountEmail(),
-                request.accountName(),
+                accountEmail,
+                accountName,
                 encryptPlaceholder(request.accessToken()),
                 encryptPlaceholder(request.refreshToken()),
                 request.tokenExpiresAt()

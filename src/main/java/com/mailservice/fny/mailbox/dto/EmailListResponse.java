@@ -21,6 +21,15 @@ public record EmailListResponse(
         BigDecimal urgencyScore,
         String shortSummary,
         Boolean needsReply,
+        boolean analysisEligible,
+        Integer analysisCandidateScore,
+        String analysisCandidateReasons,
+        String analysisSkippedReason,
+        LocalDateTime analysisCandidateEvaluatedAt,
+        boolean attentionResolved,
+        LocalDateTime attentionResolvedAt,
+        String attentionStatus,
+        LocalDateTime attentionStatusUpdatedAt,
         List<String> attentionReasons
 ) {
 
@@ -41,12 +50,25 @@ public record EmailListResponse(
                 summary.urgencyScore(),
                 summary.shortSummary(),
                 summary.needsReply(),
+                summary.analysisEligible(),
+                summary.analysisCandidateScore(),
+                summary.analysisCandidateReasons(),
+                summary.analysisSkippedReason(),
+                summary.analysisCandidateEvaluatedAt(),
+                summary.attentionResolved(),
+                summary.attentionResolvedAt(),
+                summary.attentionStatus(),
+                summary.attentionStatusUpdatedAt(),
                 resolveAttentionReasons(summary)
         );
     }
 
     private static List<String> resolveAttentionReasons(InboxEmailSummary summary) {
         List<String> reasons = new ArrayList<>();
+
+        if (summary.attentionResolved()) {
+            return reasons;
+        }
 
         if ("P1".equals(summary.priorityLevel()) || "P2".equals(summary.priorityLevel())) {
             reasons.add("HIGH_PRIORITY");

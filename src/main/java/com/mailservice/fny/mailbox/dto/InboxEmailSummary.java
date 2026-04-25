@@ -18,6 +18,15 @@ public record InboxEmailSummary(
         BigDecimal importanceScore,
         BigDecimal urgencyScore,
         String shortSummary,
-        Boolean needsReply
+        Boolean needsReply,
+        boolean analysisEligible,
+        Integer analysisCandidateScore,
+        String analysisCandidateReasons,
+        String analysisSkippedReason,
+        LocalDateTime analysisCandidateEvaluatedAt,
+        boolean attentionResolved,
+        LocalDateTime attentionResolvedAt,
+        String attentionStatus,
+        LocalDateTime attentionStatusUpdatedAt
 ) {
 }

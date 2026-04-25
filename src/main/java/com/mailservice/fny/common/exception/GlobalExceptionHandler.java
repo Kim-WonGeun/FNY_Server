@@ -1,6 +1,7 @@
 package com.mailservice.fny.common.exception;
 
 import com.mailservice.fny.analysis.exception.AnalysisJobNotFoundException;
+import com.mailservice.fny.integration.gmail.GmailClientException;
 import com.mailservice.fny.integration.mail.exception.MailDeliveryException;
 import com.mailservice.fny.integration.mail.exception.MailIntegrationNotFoundException;
 import com.mailservice.fny.mailbox.exception.MailboxNotFoundException;
@@ -42,6 +43,17 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleDeliveryFailure(MailDeliveryException exception) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(new ApiErrorResponse("MAIL_DELIVERY_FAILED", exception.getMessage(), LocalDateTime.now()));
+    }
+
+    @ExceptionHandler(GmailClientException.class)
+    public ResponseEntity<ApiErrorResponse> handleGmailFailure(GmailClientException exception) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(new ApiErrorResponse(
+                        "GMAIL_API_FAILED",
+                        "Gmail API 요청에 실패했습니다. status=" + exception.getStatusCode()
+                                + ", body=" + exception.getResponseBody(),
+                        LocalDateTime.now()
+                ));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

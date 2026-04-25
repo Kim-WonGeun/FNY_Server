@@ -27,8 +27,7 @@ public class AuthController {
     @GetMapping("/providers")
     public List<AuthProviderResponse> getProviders() {
         return List.of(
-                new AuthProviderResponse("GOOGLE", "/oauth2/authorization/google", "/api/auth/oauth/provision"),
-                new AuthProviderResponse("MICROSOFT", "/oauth2/authorization/microsoft", "/api/auth/oauth/provision")
+                new AuthProviderResponse("GOOGLE", "/oauth2/authorization/google", "/api/auth/oauth/provision")
         );
     }
 

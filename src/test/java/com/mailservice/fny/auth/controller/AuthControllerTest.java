@@ -27,9 +27,8 @@ class AuthControllerTest {
     void providersReturnsSupportedOAuthProviders() throws Exception {
         mockMvc.perform(get("/api/auth/providers"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(2)))
-                .andExpect(jsonPath("$[0].provider", is("GOOGLE")))
-                .andExpect(jsonPath("$[1].provider", is("MICROSOFT")));
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].provider", is("GOOGLE")));
     }
 
     @Test
