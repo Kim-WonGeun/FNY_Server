@@ -27,6 +27,8 @@ public record InboxEmailSummary(
         boolean attentionResolved,
         LocalDateTime attentionResolvedAt,
         String attentionStatus,
-        LocalDateTime attentionStatusUpdatedAt
+        LocalDateTime attentionStatusUpdatedAt,
+        String bodyText,
+        String bodyHtml
 ) {
 }

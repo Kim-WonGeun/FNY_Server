@@ -9,7 +9,8 @@ public record WeeklyReportListItem(
         String periodStart,
         String periodEnd,
         int emailCount,
-        String createdAt
+        String createdAt,
+        String workspaceStatus
 ) {
 
     private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
@@ -21,7 +22,20 @@ public record WeeklyReportListItem(
                 ISO.format(entity.getPeriodStart()),
                 ISO.format(entity.getPeriodEnd()),
                 entity.getEmailCount(),
-                ISO.format(entity.getCreatedAt())
+                ISO.format(entity.getCreatedAt()),
+                "NONE"
+        );
+    }
+
+    public static WeeklyReportListItem from(WeeklyMailReport entity, String workspaceStatus) {
+        return new WeeklyReportListItem(
+                entity.getId(),
+                entity.getReportType(),
+                ISO.format(entity.getPeriodStart()),
+                ISO.format(entity.getPeriodEnd()),
+                entity.getEmailCount(),
+                ISO.format(entity.getCreatedAt()),
+                workspaceStatus
         );
     }
 }

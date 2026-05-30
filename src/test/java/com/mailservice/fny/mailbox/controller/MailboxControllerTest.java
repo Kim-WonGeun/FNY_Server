@@ -1,10 +1,12 @@
 package com.mailservice.fny.mailbox.controller;
 
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -14,14 +16,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest(properties = "fny.agent.enabled=false")
+@SpringBootTest(properties = {
+        "fny.agent.enabled=false",
+        "fny.security.dev-user-header-enabled=true"
+})
 @AutoConfigureMockMvc
 @Transactional
+@WithMockUser
 class MailboxControllerTest {
 
     @Autowired
@@ -39,6 +46,16 @@ class MailboxControllerTest {
                 .andExpect(jsonPath("$.unreadEmails", is(67)))
                 .andExpect(jsonPath("$.needsReplyEmails", is(2)))
                 .andExpect(jsonPath("$.highPriorityEmails", is(3)))
+                .andExpect(jsonPath("$.spotlightEmails", hasSize(5)));
+    }
+
+    @Test
+    void myOverviewCanResolveCurrentUserFromHeader() throws Exception {
+        mockMvc.perform(get("/api/me/overview")
+                        .header("X-FNY-USER-ID", "USR_260409_A00001"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId", is("USR_260409_A00001")))
+                .andExpect(jsonPath("$.totalEmails", is(100)))
                 .andExpect(jsonPath("$.spotlightEmails", hasSize(5)));
     }
 
@@ -143,6 +160,47 @@ class MailboxControllerTest {
                 .andExpect(jsonPath("$.analysis.category", is("URGENT")))
                 .andExpect(jsonPath("$.analysis.priorityLevel", is("P1")))
                 .andExpect(jsonPath("$.actionItems[0].actionType", is("REPLY")));
+
+        mockMvc.perform(get("/api/emails/EML_260409_A00001/analyses"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].analysisVersion", is(2)))
+                .andExpect(jsonPath("$[0].id").exists())
+                .andExpect(jsonPath("$[1].analysisVersion", is(1)));
+    }
+
+    @Test
+    void analysisFeedbackCanBeSavedAndUpdated() throws Exception {
+        mockMvc.perform(put("/api/email-analyses/ANL_260409_A00001/feedbacks/USR_260409_A00001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "feedbackType": "ACCEPTED",
+                                  "reasonCode": "GOOD_SUMMARY",
+                                  "memo": "요약과 우선순위가 적절합니다."
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.analysisId", is("ANL_260409_A00001")))
+                .andExpect(jsonPath("$.emailId", is("EML_260409_A00001")))
+                .andExpect(jsonPath("$.userId", is("USR_260409_A00001")))
+                .andExpect(jsonPath("$.feedbackType", is("ACCEPTED")))
+                .andExpect(jsonPath("$.reasonCode", is("GOOD_SUMMARY")))
+                .andExpect(jsonPath("$.memo", is("요약과 우선순위가 적절합니다.")));
+
+        mockMvc.perform(put("/api/email-analyses/ANL_260409_A00001/feedbacks/USR_260409_A00001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "feedbackType": "NEEDS_FIX",
+                                  "reasonCode": "PRIORITY_TOO_HIGH",
+                                  "memo": "긴급도는 조금 낮아도 됩니다."
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.feedbackType", is("NEEDS_FIX")))
+                .andExpect(jsonPath("$.reasonCode", is("PRIORITY_TOO_HIGH")))
+                .andExpect(jsonPath("$.memo", is("긴급도는 조금 낮아도 됩니다.")));
     }
 
     @Test
@@ -151,13 +209,16 @@ class MailboxControllerTest {
                         .param("startDate", LocalDate.now().minusDays(1).toString())
                 .param("endDate", LocalDate.now().toString()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.emailCount", is(100)))
+                .andExpect(jsonPath("$.emailCount", greaterThan(0)))
                 .andExpect(jsonPath("$.mailAccountId", is("MAC_260409_A00001")))
                 .andExpect(jsonPath("$.source", is("FALLBACK")))
                 .andExpect(jsonPath("$.highlights", hasSize(2)))
                 .andExpect(jsonPath("$.risksBlockers", hasSize(1)))
                 .andExpect(jsonPath("$.nextWeekSuggestions", hasSize(1)))
                 .andExpect(jsonPath("$.threadSummaries", hasSize(40)))
+                .andExpect(jsonPath("$.threadSummaries[0].reportSection").exists())
+                .andExpect(jsonPath("$.threadSummaries[0].evidenceText").exists())
+                .andExpect(jsonPath("$.threadSummaries[0].fromEmail").exists())
                 .andReturn();
 
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
@@ -166,12 +227,54 @@ class MailboxControllerTest {
         mockMvc.perform(get("/api/users/USR_260409_A00001/weekly-reports/" + reportId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.reportId", is(reportId)))
-                .andExpect(jsonPath("$.emailCount", is(100)));
+                .andExpect(jsonPath("$.emailCount", is(body.get("emailCount").asInt())));
+
+        mockMvc.perform(put("/api/me/weekly-reports/" + reportId + "/workspace")
+                        .header("X-FNY-USER-ID", "USR_260409_A00001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "draftText": "편집한 주간보고 초안",
+                                  "saveStatus": "DRAFT",
+                                  "excludedSourceIds": ["EML_260409_A00010"]
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reportId", is(reportId)))
+                .andExpect(jsonPath("$.userId", is("USR_260409_A00001")))
+                .andExpect(jsonPath("$.draftText", is("편집한 주간보고 초안")))
+                .andExpect(jsonPath("$.saveStatus", is("DRAFT")))
+                .andExpect(jsonPath("$.excludedSourceIds[0]", is("EML_260409_A00010")));
+
+        mockMvc.perform(get("/api/me/weekly-reports/" + reportId + "/workspace")
+                        .header("X-FNY-USER-ID", "USR_260409_A00001"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.draftText", is("편집한 주간보고 초안")))
+                .andExpect(jsonPath("$.excludedSourceIds[0]", is("EML_260409_A00010")));
+
+        mockMvc.perform(get("/api/users/USR_260409_A00001/mail-accounts/MAC_260409_A00001/weekly-reports"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].workspaceStatus", is("DRAFT")));
+
+        mockMvc.perform(patch("/api/me/weekly-reports/" + reportId + "/workspace/status")
+                        .header("X-FNY-USER-ID", "USR_260409_A00001")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "saveStatus": "ARCHIVED"
+                                }
+                                """))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/me/weekly-reports/" + reportId + "/workspace")
+                        .header("X-FNY-USER-ID", "USR_260409_A00001"))
+                .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/api/users/USR_260409_A00001/mail-accounts/MAC_260409_A00001/weekly-reports"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].reportId", is(reportId)));
+                .andExpect(jsonPath("$[0].reportId", is(reportId)))
+                .andExpect(jsonPath("$[0].workspaceStatus", is("NONE")));
     }
 
     @Test

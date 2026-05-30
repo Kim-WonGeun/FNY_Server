@@ -38,7 +38,9 @@ public interface EmailMessageRepository extends JpaRepository<EmailMessage, Stri
                 email.attentionResolved,
                 email.attentionResolvedAt,
                 email.attentionStatus,
-                email.attentionStatusUpdatedAt
+                email.attentionStatusUpdatedAt,
+                email.bodyText,
+                email.bodyHtml
             )
             from EmailMessage email
             join email.mailAccount account
@@ -82,7 +84,9 @@ public interface EmailMessageRepository extends JpaRepository<EmailMessage, Stri
                 email.attentionResolved,
                 email.attentionResolvedAt,
                 email.attentionStatus,
-                email.attentionStatusUpdatedAt
+                email.attentionStatusUpdatedAt,
+                email.bodyText,
+                email.bodyHtml
             )
             from EmailMessage email
             join email.mailAccount account

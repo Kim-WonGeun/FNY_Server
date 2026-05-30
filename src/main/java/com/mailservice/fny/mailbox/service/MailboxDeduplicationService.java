@@ -50,6 +50,10 @@ public class MailboxDeduplicationService {
                     select id from email_analysis where email_id in (:emailIds)
                 )
                 """, params);
+        jdbcTemplate.update("""
+                delete from email_analysis_feedback
+                where email_id in (:emailIds)
+                """, params);
         jdbcTemplate.update("delete from email_labels where email_id in (:emailIds)", params);
         jdbcTemplate.update("delete from analysis_jobs where email_id in (:emailIds)", params);
         jdbcTemplate.update("delete from email_recipients where email_id in (:emailIds)", params);
