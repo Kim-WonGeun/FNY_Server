@@ -171,6 +171,10 @@ public class EmailAnalysis {
         return id;
     }
 
+    public EmailMessage getEmail() {
+        return email;
+    }
+
     public int getAnalysisVersion() {
         return analysisVersion;
     }

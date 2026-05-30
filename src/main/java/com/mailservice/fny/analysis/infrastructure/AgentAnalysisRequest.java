@@ -10,17 +10,19 @@ public record AgentAnalysisRequest(
         @JsonProperty("body_text") String bodyText,
         @JsonProperty("from_email") String fromEmail,
         @JsonProperty("received_at") String receivedAt,
-        String language
+        String language,
+        AgentPromptTemplateRequest prompt
 ) {
 
-    public static AgentAnalysisRequest from(EmailMessage email) {
+    public static AgentAnalysisRequest from(EmailMessage email, AgentPromptTemplateRequest prompt) {
         return new AgentAnalysisRequest(
                 email.getId(),
                 Objects.toString(email.getSubject(), ""),
                 resolveBody(email),
                 Objects.toString(email.getFromEmail(), ""),
                 email.getReceivedAt().toString(),
-                "ko"
+                "ko",
+                prompt
         );
     }
 

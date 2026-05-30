@@ -15,6 +15,18 @@ INSERT INTO prompt_templates (
     id, prompt_code, prompt_name, prompt_type, version, model_name,
     role_content, policy_content, guide_content, output_content, active
 ) VALUES (
+    'PRM_260502_A00001',
+    'EMAIL_ANALYSIS',
+    '메일 분석 프롬프트',
+    'ANALYSIS',
+    1,
+    'gpt-5.4-mini',
+    '너는 업무 메일을 읽고 우선순위, 긴급도, 중요도, 회신 필요 여부, 추천 액션을 구조화해서 반환하는 메일 분석 비서다. 사용자가 메일함에서 바로 판단할 수 있도록 짧고 명확한 한국어 결과를 만든다.',
+    '메일 원문에 없는 사실, 일정, 담당자, 수치를 만들지 않는다. 광고성 메일, 단순 알림, 인증번호, 노이즈성 메일은 보수적으로 판단한다. 불확실하면 낮은 confidence_score를 주고 reasoning에 이유를 남긴다. 출력은 반드시 지정된 JSON 형식만 반환한다.',
+    'short_summary는 한 줄 판단 요약, detailed_summary는 메일의 핵심 맥락을 2~3문장으로 설명한다. category는 REQUEST, MEETING, REPORT, FINANCE, GENERAL, URGENT 중 하나를 사용한다. priority_level은 P1~P4 중 하나를 사용한다. importance_score, urgency_score, confidence_score는 0~100 범위 숫자다. priority_reason_codes는 NEEDS_REPLY, HAS_DEADLINE, URGENT_KEYWORD, DIRECT_TO_ME, IMPORTANT_HEADER, ATTACHMENT, FINANCE_RELATED, MEETING_RELATED, APPROVAL_REQUIRED, CUSTOMER_OR_CONTRACT, NO_STRONG_SIGNAL 중에서 반환한다. action_items의 action_type은 REPLY, REVIEW, APPROVE, SCHEDULE, PAYMENT, FOLLOW_UP, ARCHIVE 중에서 반환한다.',
+    '다음 JSON 객체만 반환한다. {"email_id":"메일 ID","urgency":"low|medium|high|critical","short_summary":"한 줄 요약","detailed_summary":"상세 요약","category":"REQUEST|MEETING|REPORT|FINANCE|GENERAL|URGENT","priority_level":"P1|P2|P3|P4","importance_score":0,"urgency_score":0,"confidence_score":0,"needs_reply":true,"has_deadline":false,"deadline_at":null,"deadline_text":"","time_sensitivity":"IMMEDIATE|TODAY|THIS_WEEK|NO_DEADLINE","requires_action":true,"user_task_summary":"사용자가 해야 할 일 요약","priority_reason_codes":["NEEDS_REPLY","HAS_DEADLINE"],"suggested_action":"추천 액션","reasoning":"판단 사유","action_items":[{"action_text":"할 일","action_type":"REPLY","priority_level":"P2","due_at":null}],"model_name":"모델명","prompt_version":"버전"}',
+    TRUE
+), (
     'PRM_260413_A00001',
     'WEEKLY_REPORT',
     '주간보고 생성 프롬프트',
@@ -152,10 +164,10 @@ INSERT INTO email_action_items (
 ) VALUES
     ('ACT_260409_A00001', 'ANL_260409_A00001', '메일 내용 확인 및 회신', 'REPLY', 'P1', FALSE),
     ('ACT_260409_A00002', 'ANL_260409_A00002', '회의 일정 캘린더 등록', 'SCHEDULE', 'P2', FALSE),
-    ('ACT_260409_A00003', 'ANL_260409_A00003', '주간 보고서 작성 및 제출', 'SUBMIT', 'P2', FALSE),
+    ('ACT_260409_A00003', 'ANL_260409_A00003', '주간 보고서 작성 및 제출', 'REVIEW', 'P2', FALSE),
     ('ACT_260409_A00004', 'ANL_260409_A00004', '첨부 계약서 검토', 'REVIEW', 'P1', FALSE),
     ('ACT_260409_A00005', 'ANL_260409_A00005', '공유 문서 읽기', 'READ', 'P3', FALSE),
-    ('ACT_260409_A00006', 'ANL_260409_A00006', '장애 대응 우선 수행', 'ESCALATE', 'P1', FALSE),
+    ('ACT_260409_A00006', 'ANL_260409_A00006', '장애 대응 우선 수행', 'FOLLOW_UP', 'P1', FALSE),
     ('ACT_260409_A00007', 'ANL_260409_A00007', '제안서 수정 포인트 반영', 'EDIT', 'P2', FALSE),
     ('ACT_260409_A00008', 'ANL_260409_A00008', '세금계산서 증빙 보관', 'ARCHIVE', 'P3', FALSE),
     ('ACT_260409_A00009', 'ANL_260409_A00009', '면접 가능 시간 회신', 'REPLY', 'P2', FALSE);

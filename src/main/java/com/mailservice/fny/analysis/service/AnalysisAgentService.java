@@ -16,15 +16,18 @@ public class AnalysisAgentService {
 
     private final AgentAnalysisClient agentAnalysisClient;
     private final AnalysisResultService analysisResultService;
+    private final PromptTemplateService promptTemplateService;
     private final boolean enabled;
 
     public AnalysisAgentService(
             AgentAnalysisClient agentAnalysisClient,
             AnalysisResultService analysisResultService,
+            PromptTemplateService promptTemplateService,
             @Value("${fny.agent.enabled:false}") boolean enabled
     ) {
         this.agentAnalysisClient = agentAnalysisClient;
         this.analysisResultService = analysisResultService;
+        this.promptTemplateService = promptTemplateService;
         this.enabled = enabled;
     }
 
@@ -36,7 +39,10 @@ public class AnalysisAgentService {
 
         job.start("fny-agent");
         try {
-            AgentAnalysisResponse response = agentAnalysisClient.analyze(job.getEmail());
+            AgentAnalysisResponse response = agentAnalysisClient.analyze(
+                    job.getEmail(),
+                    promptTemplateService.resolveEmailAnalysisPrompt()
+            );
             if (response == null) {
                 job.fail("Agent 분석 응답이 비어 있습니다.");
                 return false;

@@ -5,7 +5,9 @@ DROP TABLE IF EXISTS email_labels;
 DROP TABLE IF EXISTS labels;
 DROP TABLE IF EXISTS analysis_jobs;
 DROP TABLE IF EXISTS prompt_templates;
+DROP TABLE IF EXISTS weekly_report_workspaces;
 DROP TABLE IF EXISTS weekly_mail_reports;
+DROP TABLE IF EXISTS email_analysis_feedback;
 DROP TABLE IF EXISTS email_action_items;
 DROP TABLE IF EXISTS email_analysis;
 DROP TABLE IF EXISTS email_recipients;
@@ -231,6 +233,32 @@ COMMENT ON COLUMN email_analysis.created_at IS '생성일시';
 COMMENT ON COLUMN email_analysis.updated_at IS '수정일시';
 
 
+-- EMAIL_ANALYSIS_FEEDBACK
+CREATE TABLE email_analysis_feedback (
+    id VARCHAR(20) NOT NULL,
+    analysis_id VARCHAR(20) NOT NULL,
+    email_id VARCHAR(20) NOT NULL,
+    user_id VARCHAR(20) NOT NULL,
+    feedback_type VARCHAR(30) NOT NULL,
+    reason_code VARCHAR(50),
+    memo VARCHAR(1000),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id)
+);
+
+COMMENT ON TABLE email_analysis_feedback IS '메일 분석 사용자 피드백';
+COMMENT ON COLUMN email_analysis_feedback.id IS '피드백 ID';
+COMMENT ON COLUMN email_analysis_feedback.analysis_id IS '분석 ID';
+COMMENT ON COLUMN email_analysis_feedback.email_id IS '메일 ID';
+COMMENT ON COLUMN email_analysis_feedback.user_id IS '사용자 ID';
+COMMENT ON COLUMN email_analysis_feedback.feedback_type IS '피드백 유형 (ACCEPTED, NEEDS_FIX)';
+COMMENT ON COLUMN email_analysis_feedback.reason_code IS '피드백 사유 코드';
+COMMENT ON COLUMN email_analysis_feedback.memo IS '피드백 메모';
+COMMENT ON COLUMN email_analysis_feedback.created_at IS '생성일시';
+COMMENT ON COLUMN email_analysis_feedback.updated_at IS '수정일시';
+
+
 -- EMAIL_ACTION_ITEMS
 CREATE TABLE email_action_items (
     id VARCHAR(20) NOT NULL,
@@ -355,6 +383,33 @@ COMMENT ON COLUMN weekly_mail_reports.created_at IS '생성일시';
 COMMENT ON COLUMN weekly_mail_reports.updated_at IS '수정일시';
 
 
+-- WEEKLY_REPORT_WORKSPACES
+CREATE TABLE weekly_report_workspaces (
+    id VARCHAR(20) NOT NULL,
+    report_id VARCHAR(20) NOT NULL,
+    user_id VARCHAR(20) NOT NULL,
+    draft_text TEXT NOT NULL,
+    save_status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+    excluded_source_ids TEXT,
+    saved_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_weekly_report_workspaces_report_user UNIQUE (report_id, user_id)
+);
+
+COMMENT ON TABLE weekly_report_workspaces IS '보고서 편집 작업공간';
+COMMENT ON COLUMN weekly_report_workspaces.id IS '보고서 작업공간 ID';
+COMMENT ON COLUMN weekly_report_workspaces.report_id IS '보고서 ID';
+COMMENT ON COLUMN weekly_report_workspaces.user_id IS '사용자 ID';
+COMMENT ON COLUMN weekly_report_workspaces.draft_text IS '편집 중인 보고서 본문';
+COMMENT ON COLUMN weekly_report_workspaces.save_status IS '저장 상태 (DRAFT, SAVED)';
+COMMENT ON COLUMN weekly_report_workspaces.excluded_source_ids IS '제외한 근거 메일 ID JSON';
+COMMENT ON COLUMN weekly_report_workspaces.saved_at IS '저장 일시';
+COMMENT ON COLUMN weekly_report_workspaces.created_at IS '생성일시';
+COMMENT ON COLUMN weekly_report_workspaces.updated_at IS '수정일시';
+
+
 -- LABELS
 CREATE TABLE labels (
     id VARCHAR(20) NOT NULL,
@@ -441,6 +496,18 @@ INSERT INTO prompt_templates (
     id, prompt_code, prompt_name, prompt_type, version, model_name,
     role_content, policy_content, guide_content, output_content, active
 ) VALUES (
+    CONCAT('PRM_', TO_CHAR(CURRENT_DATE, 'YYMMDD'), '_A00000'),
+    'EMAIL_ANALYSIS',
+    '메일 분석 프롬프트',
+    'ANALYSIS',
+    1,
+    'gpt-5.4-mini',
+    '너는 업무 메일을 읽고 우선순위, 긴급도, 중요도, 회신 필요 여부, 추천 액션을 구조화해서 반환하는 메일 분석 비서다. 사용자가 메일함에서 바로 판단할 수 있도록 짧고 명확한 한국어 결과를 만든다.',
+    '메일 원문에 없는 사실, 일정, 담당자, 수치를 만들지 않는다. 광고성 메일, 단순 알림, 인증번호, 노이즈성 메일은 보수적으로 판단한다. 불확실하면 낮은 confidence_score를 주고 reasoning에 이유를 남긴다. 출력은 반드시 지정된 JSON 형식만 반환한다.',
+    'short_summary는 한 줄 판단 요약, detailed_summary는 메일의 핵심 맥락을 2~3문장으로 설명한다. category는 REQUEST, MEETING, REPORT, FINANCE, GENERAL, URGENT 중 하나를 사용한다. priority_level은 P1~P4 중 하나를 사용한다. importance_score, urgency_score, confidence_score는 0~100 범위 숫자다. priority_reason_codes는 NEEDS_REPLY, HAS_DEADLINE, URGENT_KEYWORD, DIRECT_TO_ME, IMPORTANT_HEADER, ATTACHMENT, FINANCE_RELATED, MEETING_RELATED, APPROVAL_REQUIRED, CUSTOMER_OR_CONTRACT, NO_STRONG_SIGNAL 중에서 반환한다. action_items의 action_type은 REPLY, REVIEW, APPROVE, SCHEDULE, PAYMENT, FOLLOW_UP, ARCHIVE 중에서 반환한다.',
+    '다음 JSON 객체만 반환한다. {"email_id":"메일 ID","urgency":"low|medium|high|critical","short_summary":"한 줄 요약","detailed_summary":"상세 요약","category":"REQUEST|MEETING|REPORT|FINANCE|GENERAL|URGENT","priority_level":"P1|P2|P3|P4","importance_score":0,"urgency_score":0,"confidence_score":0,"needs_reply":true,"has_deadline":false,"deadline_at":null,"deadline_text":"","time_sensitivity":"IMMEDIATE|TODAY|THIS_WEEK|NO_DEADLINE","requires_action":true,"user_task_summary":"사용자가 해야 할 일 요약","priority_reason_codes":["NEEDS_REPLY","HAS_DEADLINE"],"suggested_action":"추천 액션","reasoning":"판단 사유","action_items":[{"action_text":"할 일","action_type":"REPLY","priority_level":"P2","due_at":null}],"model_name":"모델명","prompt_version":"버전"}',
+    TRUE
+), (
     CONCAT('PRM_', TO_CHAR(CURRENT_DATE, 'YYMMDD'), '_A00001'),
     'WEEKLY_REPORT',
     '주간보고 생성 프롬프트',

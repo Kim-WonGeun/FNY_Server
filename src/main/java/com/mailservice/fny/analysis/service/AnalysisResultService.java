@@ -4,15 +4,12 @@ import com.mailservice.fny.analysis.dto.AnalysisActionItemRequest;
 import com.mailservice.fny.analysis.dto.AnalysisResultRequest;
 import com.mailservice.fny.analysis.dto.AnalysisResultSaveResponse;
 import com.mailservice.fny.analysis.entity.AnalysisJob;
-import com.mailservice.fny.analysis.entity.EmailActionItem;
 import com.mailservice.fny.analysis.entity.EmailAnalysis;
 import com.mailservice.fny.analysis.exception.AnalysisJobNotFoundException;
 import com.mailservice.fny.analysis.repository.AnalysisJobRepository;
 import com.mailservice.fny.analysis.repository.EmailActionItemRepository;
 import com.mailservice.fny.analysis.repository.EmailAnalysisRepository;
-import com.mailservice.fny.common.IdGenerator;
 import java.util.List;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,18 +20,18 @@ public class AnalysisResultService {
     private final AnalysisJobRepository analysisJobRepository;
     private final EmailAnalysisRepository emailAnalysisRepository;
     private final EmailActionItemRepository emailActionItemRepository;
-    private final IdGenerator idGenerator;
+    private final AnalysisResultMapper analysisResultMapper;
 
     public AnalysisResultService(
             AnalysisJobRepository analysisJobRepository,
             EmailAnalysisRepository emailAnalysisRepository,
             EmailActionItemRepository emailActionItemRepository,
-            IdGenerator idGenerator
+            AnalysisResultMapper analysisResultMapper
     ) {
         this.analysisJobRepository = analysisJobRepository;
         this.emailAnalysisRepository = emailAnalysisRepository;
         this.emailActionItemRepository = emailActionItemRepository;
-        this.idGenerator = idGenerator;
+        this.analysisResultMapper = analysisResultMapper;
     }
 
     public AnalysisResultSaveResponse saveResult(String jobId, AnalysisResultRequest request) {
@@ -52,45 +49,13 @@ public class AnalysisResultService {
                 .map(existing -> existing.getAnalysisVersion() + 1)
                 .orElse(1);
 
-        EmailAnalysis analysis = new EmailAnalysis(
-                idGenerator.generate("ANL"),
-                job.getEmail(),
-                nextVersion,
-                request.modelName(),
-                request.promptVersion(),
-                request.shortSummary(),
-                request.detailedSummary(),
-                request.category(),
-                request.priorityLevel(),
-                request.importanceScore(),
-                request.urgencyScore(),
-                request.confidenceScore(),
-                request.needsReply(),
-                request.hasDeadline(),
-                request.deadlineAt(),
-                request.deadlineText(),
-                request.timeSensitivity(),
-                request.requiresAction(),
-                request.userTaskSummary(),
-                request.priorityReasonCodes() == null ? null : request.priorityReasonCodes().stream()
-                        .filter(code -> code != null && !code.isBlank())
-                        .collect(Collectors.joining(",")),
-                request.suggestedAction(),
-                request.reasoning()
-        );
+        EmailAnalysis analysis = analysisResultMapper.toAnalysis(job.getEmail(), nextVersion, request);
 
         emailAnalysisRepository.save(analysis);
 
         List<AnalysisActionItemRequest> actionItems = request.actionItems() == null ? List.of() : request.actionItems();
         actionItems.stream()
-                .map(item -> new EmailActionItem(
-                        idGenerator.generate("ACT"),
-                        analysis,
-                        item.actionText(),
-                        item.actionType(),
-                        item.priorityLevel(),
-                        item.dueAt()
-                ))
+                .map(item -> analysisResultMapper.toActionItem(analysis, item))
                 .forEach(emailActionItemRepository::save);
 
         job.complete(request.modelName());

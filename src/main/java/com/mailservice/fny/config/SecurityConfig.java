@@ -1,10 +1,15 @@
 package com.mailservice.fny.config;
 
 import com.mailservice.fny.auth.service.OAuth2LoginSuccessHandler;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
@@ -12,7 +17,6 @@ import org.springframework.security.oauth2.client.web.DefaultOAuth2Authorization
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.web.SecurityFilterChain;
-import jakarta.servlet.http.HttpServletRequest;
 
 @Configuration
 public class SecurityConfig {
@@ -26,14 +30,36 @@ public class SecurityConfig {
         return http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/**", "/oauth2/**", "/login/**", "/error", "/h2-console/**").permitAll()
+                        .requestMatchers("/api/auth/**", "/oauth2/**", "/login/**", "/error", "/h2-console/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/agent/health").permitAll()
+                        .requestMatchers("/api/**").authenticated()
                         .anyRequest().authenticated())
                 .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()))
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(this::writeUnauthorizedResponse))
                 .oauth2Login(oauth2 -> oauth2
                         .authorizationEndpoint(endpoint -> endpoint.authorizationRequestResolver(authorizationRequestResolver))
                         .successHandler(oAuth2LoginSuccessHandler))
                 .httpBasic(Customizer.withDefaults())
                 .build();
+    }
+
+    private void writeUnauthorizedResponse(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Exception exception
+    ) throws java.io.IOException {
+        if (!request.getRequestURI().startsWith("/api/")) {
+            response.sendRedirect("/oauth2/authorization/google");
+            return;
+        }
+
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write("""
+                {"code":"AUTHENTICATION_REQUIRED","message":"로그인이 필요합니다.","timestamp":"%s"}
+                """.formatted(LocalDateTime.now()));
     }
 
     @Bean

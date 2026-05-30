@@ -27,9 +27,9 @@ public class AgentAnalysisClient {
         this.analyzeUrl = baseUrl.replaceAll("/$", "") + "/analyze";
     }
 
-    public AgentAnalysisResponse analyze(EmailMessage email) {
+    public AgentAnalysisResponse analyze(EmailMessage email, AgentPromptTemplateRequest prompt) {
         try {
-            String body = objectMapper.writeValueAsString(AgentAnalysisRequest.from(email));
+            String body = objectMapper.writeValueAsString(AgentAnalysisRequest.from(email, prompt));
             HttpRequest request = HttpRequest.newBuilder(URI.create(analyzeUrl))
                     .version(HttpClient.Version.HTTP_1_1)
                     .header("Content-Type", "application/json")

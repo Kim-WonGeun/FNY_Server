@@ -2,7 +2,9 @@ DROP TABLE IF EXISTS email_labels;
 DROP TABLE IF EXISTS labels;
 DROP TABLE IF EXISTS analysis_jobs;
 DROP TABLE IF EXISTS prompt_templates;
+DROP TABLE IF EXISTS weekly_report_workspaces;
 DROP TABLE IF EXISTS weekly_mail_reports;
+DROP TABLE IF EXISTS email_analysis_feedback;
 DROP TABLE IF EXISTS email_action_items;
 DROP TABLE IF EXISTS email_analysis;
 DROP TABLE IF EXISTS email_recipients;
@@ -137,6 +139,23 @@ CREATE TABLE email_action_items (
     CONSTRAINT fk_email_action_items_analysis FOREIGN KEY (analysis_id) REFERENCES email_analysis (id)
 );
 
+CREATE TABLE email_analysis_feedback (
+    id VARCHAR(20) NOT NULL,
+    analysis_id VARCHAR(20) NOT NULL,
+    email_id VARCHAR(20) NOT NULL,
+    user_id VARCHAR(20) NOT NULL,
+    feedback_type VARCHAR(30) NOT NULL,
+    reason_code VARCHAR(50),
+    memo VARCHAR(1000),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_email_analysis_feedback_analysis_user UNIQUE (analysis_id, user_id),
+    CONSTRAINT fk_email_analysis_feedback_analysis FOREIGN KEY (analysis_id) REFERENCES email_analysis (id),
+    CONSTRAINT fk_email_analysis_feedback_email FOREIGN KEY (email_id) REFERENCES emails (id),
+    CONSTRAINT fk_email_analysis_feedback_user FOREIGN KEY (user_id) REFERENCES users (id)
+);
+
 CREATE TABLE analysis_jobs (
     id VARCHAR(20) NOT NULL,
     email_id VARCHAR(20) NOT NULL,
@@ -186,6 +205,22 @@ CREATE TABLE weekly_mail_reports (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     CONSTRAINT fk_weekly_mail_reports_mail_account FOREIGN KEY (mail_account_id) REFERENCES mail_accounts (id)
+);
+
+CREATE TABLE weekly_report_workspaces (
+    id VARCHAR(20) NOT NULL,
+    report_id VARCHAR(20) NOT NULL,
+    user_id VARCHAR(20) NOT NULL,
+    draft_text CLOB NOT NULL,
+    save_status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+    excluded_source_ids CLOB,
+    saved_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_weekly_report_workspaces_report_user UNIQUE (report_id, user_id),
+    CONSTRAINT fk_weekly_report_workspaces_report FOREIGN KEY (report_id) REFERENCES weekly_mail_reports (id),
+    CONSTRAINT fk_weekly_report_workspaces_user FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
 CREATE TABLE labels (
