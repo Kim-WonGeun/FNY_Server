@@ -6,8 +6,6 @@ import com.mailservice.fny.integration.gmail.GmailMessageRef;
 import com.mailservice.fny.integration.gmail.GmailMessageResponse;
 import com.mailservice.fny.mailbox.dto.MailSyncResponse;
 import com.mailservice.fny.mailbox.entity.MailAccount;
-import com.mailservice.fny.mailbox.exception.MailboxNotFoundException;
-import com.mailservice.fny.mailbox.repository.AppUserRepository;
 import com.mailservice.fny.mailbox.repository.EmailMessageRepository;
 import com.mailservice.fny.mailbox.repository.MailAccountRepository;
 import java.time.LocalDateTime;
@@ -20,7 +18,7 @@ public class GmailSyncService {
 
     private static final int GMAIL_PAGE_SIZE = 100;
 
-    private final AppUserRepository appUserRepository;
+    private final MailboxResourceResolver mailboxResourceResolver;
     private final MailAccountRepository mailAccountRepository;
     private final EmailMessageRepository emailMessageRepository;
     private final GmailClient gmailClient;
@@ -31,7 +29,7 @@ public class GmailSyncService {
     private final GmailSyncLockManager gmailSyncLockManager;
 
     public GmailSyncService(
-            AppUserRepository appUserRepository,
+            MailboxResourceResolver mailboxResourceResolver,
             MailAccountRepository mailAccountRepository,
             EmailMessageRepository emailMessageRepository,
             GmailClient gmailClient,
@@ -41,7 +39,7 @@ public class GmailSyncService {
             GmailSyncPlanner gmailSyncPlanner,
             GmailSyncLockManager gmailSyncLockManager
     ) {
-        this.appUserRepository = appUserRepository;
+        this.mailboxResourceResolver = mailboxResourceResolver;
         this.mailAccountRepository = mailAccountRepository;
         this.emailMessageRepository = emailMessageRepository;
         this.gmailClient = gmailClient;
@@ -59,24 +57,14 @@ public class GmailSyncService {
     }
 
     private MailSyncResponse syncLocked(String userId, String mailAccountId, int limitParam) {
-        if (!appUserRepository.existsById(userId)) {
-            throw new MailboxNotFoundException("사용자를 찾을 수 없습니다. id=" + userId);
-        }
-
-        MailAccount account = mailAccountRepository.findByIdAndUser_Id(mailAccountId, userId)
-                .orElseThrow(() -> new MailboxNotFoundException("메일 계정을 찾을 수 없습니다. id=" + mailAccountId));
+        MailAccount account = mailboxResourceResolver.getRequiredMailAccount(userId, mailAccountId);
 
         GmailSyncPlan syncPlan = gmailSyncPlanner.plan(account, limitParam);
-        int inserted = 0;
-        int skipped = mailboxDeduplicationService.deduplicateUserEmails(userId);
-        int fetched = 0;
-        int analysisRequested = 0;
-        int analysisCompleted = 0;
-        int analysisSkipped = 0;
+        GmailSyncStats stats = new GmailSyncStats(mailboxDeduplicationService.deduplicateUserEmails(userId));
         String pageToken = null;
 
         do {
-            int pageSize = Math.min(GMAIL_PAGE_SIZE, syncPlan.requestedLimit() - fetched);
+            int pageSize = Math.min(GMAIL_PAGE_SIZE, syncPlan.requestedLimit() - stats.fetched());
             if (pageSize <= 0) {
                 break;
             }
@@ -88,15 +76,15 @@ public class GmailSyncService {
                     syncPlan.gmailQuery()
             );
             List<GmailMessageRef> refs = listResponse.messages() == null ? List.of() : listResponse.messages();
-            fetched += refs.size();
+            stats.recordFetched(refs.size());
 
             for (GmailMessageRef ref : refs) {
                 if (ref.id() == null || ref.id().isBlank()) {
-                    skipped++;
+                    stats.recordSkipped();
                     continue;
                 }
                 if (isAlreadySynced(userId, account, ref.id())) {
-                    skipped++;
+                    stats.recordSkipped();
                     continue;
                 }
 
@@ -108,33 +96,33 @@ public class GmailSyncService {
                         gmailMessage
                 );
                 if (!persistResult.inserted()) {
-                    skipped++;
+                    stats.recordSkipped();
                     continue;
                 }
 
                 if (persistResult.analysisEligible()) {
-                    analysisRequested++;
+                    stats.recordAnalysisRequested();
                 } else {
-                    analysisSkipped++;
+                    stats.recordAnalysisSkipped();
                 }
-                inserted++;
+                stats.recordInserted();
             }
 
             pageToken = listResponse.nextPageToken();
-        } while (pageToken != null && !pageToken.isBlank() && fetched < syncPlan.requestedLimit());
+        } while (pageToken != null && !pageToken.isBlank() && stats.fetched() < syncPlan.requestedLimit());
 
         LocalDateTime syncedAt = LocalDateTime.now();
         markSynced(account.getId(), syncedAt);
-        skipped += mailboxDeduplicationService.deduplicateUserEmails(userId);
+        stats.recordSkipped(mailboxDeduplicationService.deduplicateUserEmails(userId));
         return new MailSyncResponse(
                 account.getId(),
-                syncPlan.syncAll() ? fetched : syncPlan.requestedLimit(),
-                fetched,
-                inserted,
-                skipped,
-                analysisRequested,
-                analysisCompleted,
-                analysisSkipped,
+                syncPlan.syncAll() ? stats.fetched() : syncPlan.requestedLimit(),
+                stats.fetched(),
+                stats.inserted(),
+                stats.skipped(),
+                stats.analysisRequested(),
+                stats.analysisCompleted(),
+                stats.analysisSkipped(),
                 syncedAt
         );
     }

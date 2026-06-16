@@ -38,8 +38,9 @@ public class WeeklyReportWorkspaceController {
             HttpServletRequest request,
             @PathVariable String reportId
     ) {
+        String userId = resolveUserId(authentication, request);
         return weeklyReportWorkspaceService
-                .getWorkspace(currentUserService.resolveUserId(authentication, request), reportId)
+                .getWorkspace(userId, reportId)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.noContent().build());
     }
@@ -51,8 +52,9 @@ public class WeeklyReportWorkspaceController {
             @PathVariable String reportId,
             @Valid @RequestBody WeeklyReportWorkspaceRequest workspaceRequest
     ) {
+        String userId = resolveUserId(authentication, request);
         return weeklyReportWorkspaceService.saveWorkspace(
-                currentUserService.resolveUserId(authentication, request),
+                userId,
                 reportId,
                 workspaceRequest
         );
@@ -65,13 +67,18 @@ public class WeeklyReportWorkspaceController {
             @PathVariable String reportId,
             @Valid @RequestBody WeeklyReportWorkspaceStatusRequest statusRequest
     ) {
+        String userId = resolveUserId(authentication, request);
         return weeklyReportWorkspaceService
                 .updateWorkspaceStatus(
-                        currentUserService.resolveUserId(authentication, request),
+                        userId,
                         reportId,
                         statusRequest
                 )
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    private String resolveUserId(Authentication authentication, HttpServletRequest request) {
+        return currentUserService.resolveUserId(authentication, request);
     }
 }

@@ -3,6 +3,7 @@ package com.mailservice.fny.mailbox.controller;
 import com.mailservice.fny.auth.service.CurrentUserService;
 import com.mailservice.fny.mailbox.dto.WeeklyReportListItem;
 import com.mailservice.fny.mailbox.dto.WeeklyReportResponse;
+import com.mailservice.fny.mailbox.entity.WeeklyMailReportType;
 import com.mailservice.fny.mailbox.service.WeeklyReportService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDate;
@@ -36,12 +37,13 @@ public class MyWeeklyReportController {
             HttpServletRequest request,
             @PathVariable String mailAccountId,
             @RequestParam(defaultValue = "7") int days,
-            @RequestParam(defaultValue = "WEEKLY") String reportType,
+            @RequestParam(defaultValue = WeeklyMailReportType.WEEKLY) String reportType,
             @RequestParam(required = false) LocalDate startDate,
             @RequestParam(required = false) LocalDate endDate
     ) {
+        String userId = resolveUserId(authentication, request);
         return weeklyReportService.generate(
-                currentUserService.resolveUserId(authentication, request),
+                userId,
                 mailAccountId,
                 days,
                 reportType,
@@ -56,8 +58,9 @@ public class MyWeeklyReportController {
             HttpServletRequest request,
             @PathVariable String mailAccountId
     ) {
+        String userId = resolveUserId(authentication, request);
         return weeklyReportService.listReports(
-                currentUserService.resolveUserId(authentication, request),
+                userId,
                 mailAccountId
         );
     }
@@ -68,6 +71,10 @@ public class MyWeeklyReportController {
             HttpServletRequest request,
             @PathVariable String reportId
     ) {
-        return weeklyReportService.getReport(currentUserService.resolveUserId(authentication, request), reportId);
+        return weeklyReportService.getReport(resolveUserId(authentication, request), reportId);
+    }
+
+    private String resolveUserId(Authentication authentication, HttpServletRequest request) {
+        return currentUserService.resolveUserId(authentication, request);
     }
 }

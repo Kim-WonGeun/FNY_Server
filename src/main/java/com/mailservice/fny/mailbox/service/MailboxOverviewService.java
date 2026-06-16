@@ -5,8 +5,6 @@ import com.mailservice.fny.analysis.repository.AnalysisJobRepository;
 import com.mailservice.fny.mailbox.dto.EmailListResponse;
 import com.mailservice.fny.mailbox.dto.InboxEmailSummary;
 import com.mailservice.fny.mailbox.dto.MailboxOverviewResponse;
-import com.mailservice.fny.mailbox.exception.MailboxNotFoundException;
-import com.mailservice.fny.mailbox.repository.AppUserRepository;
 import com.mailservice.fny.mailbox.repository.EmailMessageRepository;
 import java.util.List;
 import java.util.Set;
@@ -23,25 +21,25 @@ public class MailboxOverviewService {
             AnalysisJob.STATUS_WAITING_AGENT
     );
 
-    private final AppUserRepository appUserRepository;
+    private final MailboxUserValidator mailboxUserValidator;
     private final EmailMessageRepository emailMessageRepository;
     private final AnalysisJobRepository analysisJobRepository;
     private final MailboxAttentionPolicy mailboxAttentionPolicy;
 
     public MailboxOverviewService(
-            AppUserRepository appUserRepository,
+            MailboxUserValidator mailboxUserValidator,
             EmailMessageRepository emailMessageRepository,
             AnalysisJobRepository analysisJobRepository,
             MailboxAttentionPolicy mailboxAttentionPolicy
     ) {
-        this.appUserRepository = appUserRepository;
+        this.mailboxUserValidator = mailboxUserValidator;
         this.emailMessageRepository = emailMessageRepository;
         this.analysisJobRepository = analysisJobRepository;
         this.mailboxAttentionPolicy = mailboxAttentionPolicy;
     }
 
     public MailboxOverviewResponse getOverview(String userId) {
-        ensureUserExists(userId);
+        mailboxUserValidator.ensureExists(userId);
         List<InboxEmailSummary> inboxEmails = emailMessageRepository.findInboxByUserId(userId);
         List<EmailListResponse> spotlightEmails = inboxEmails.stream()
                 .filter(mailboxAttentionPolicy::isSpotlightCandidate)
@@ -64,12 +62,6 @@ public class MailboxOverviewService {
                 analysisJobRepository.countByEmailMailAccountUserIdAndStatusIn(userId, OPEN_ANALYSIS_JOB_STATUSES),
                 spotlightEmails
         );
-    }
-
-    private void ensureUserExists(String userId) {
-        if (!appUserRepository.existsById(userId)) {
-            throw new MailboxNotFoundException("사용자를 찾을 수 없습니다. id=" + userId);
-        }
     }
 
 }

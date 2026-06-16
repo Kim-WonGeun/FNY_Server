@@ -2,8 +2,14 @@ package com.mailservice.fny.mailbox.service;
 
 import com.mailservice.fny.integration.gmail.GmailBody;
 import com.mailservice.fny.integration.gmail.GmailHeader;
+import com.mailservice.fny.integration.gmail.GmailMessageResponse;
 import com.mailservice.fny.integration.gmail.GmailPayload;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.Locale;
 import org.springframework.stereotype.Component;
@@ -62,6 +68,29 @@ public class GmailPayloadParser {
             return false;
         }
         return payload.parts().stream().anyMatch(this::hasAttachment);
+    }
+
+    public LocalDateTime resolveReceivedAt(GmailMessageResponse message) {
+        if (message.internalDate() != null && !message.internalDate().isBlank()) {
+            return LocalDateTime.ofInstant(
+                    Instant.ofEpochMilli(Long.parseLong(message.internalDate())),
+                    ZoneId.systemDefault()
+            );
+        }
+
+        String dateHeader = header(message.payload(), "Date");
+        if (!dateHeader.isBlank()) {
+            try {
+                return LocalDateTime.ofInstant(
+                        DateTimeFormatter.RFC_1123_DATE_TIME.parse(dateHeader, Instant::from),
+                        ZoneId.systemDefault()
+                );
+            } catch (DateTimeParseException ignored) {
+                return LocalDateTime.now();
+            }
+        }
+
+        return LocalDateTime.now();
     }
 
     private void collectBody(GmailPayload payload, StringBuilder text, StringBuilder html) {

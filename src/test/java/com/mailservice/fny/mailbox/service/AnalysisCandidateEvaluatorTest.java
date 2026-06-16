@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 
 class AnalysisCandidateEvaluatorTest {
 
-    private final AnalysisCandidateEvaluator evaluator = new AnalysisCandidateEvaluator();
+    private final AnalysisCandidateEvaluator evaluator = new AnalysisCandidateEvaluator(new AnalysisCandidateScorer());
 
     @Test
     void keepsRecentActionMailAsAnalysisCandidate() {

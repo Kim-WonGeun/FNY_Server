@@ -6,11 +6,7 @@ import com.mailservice.fny.integration.gmail.GmailPayload;
 import com.mailservice.fny.mailbox.entity.EmailMessage;
 import com.mailservice.fny.mailbox.entity.EmailRecipient;
 import com.mailservice.fny.mailbox.entity.MailAccount;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;
@@ -43,7 +39,7 @@ public class GmailMessageMapper {
         String from = header(payload, "From");
         GmailAddress fromAddress = gmailPayloadParser.parseAddress(from);
         GmailBodyParts bodyParts = gmailPayloadParser.extractBodyParts(payload);
-        LocalDateTime receivedAt = resolveReceivedAt(message, payload);
+        LocalDateTime receivedAt = gmailPayloadParser.resolveReceivedAt(message);
         String rawPayload = serialize(message);
         List<String> labels = message.labelIds() == null ? List.of() : message.labelIds();
 
@@ -101,29 +97,6 @@ public class GmailMessageMapper {
             }
         }
         return recipients;
-    }
-
-    private LocalDateTime resolveReceivedAt(GmailMessageResponse message, GmailPayload payload) {
-        if (message.internalDate() != null && !message.internalDate().isBlank()) {
-            return LocalDateTime.ofInstant(
-                    Instant.ofEpochMilli(Long.parseLong(message.internalDate())),
-                    ZoneId.systemDefault()
-            );
-        }
-
-        String dateHeader = header(payload, "Date");
-        if (!dateHeader.isBlank()) {
-            try {
-                return LocalDateTime.ofInstant(
-                        DateTimeFormatter.RFC_1123_DATE_TIME.parse(dateHeader, Instant::from),
-                        ZoneId.systemDefault()
-                );
-            } catch (DateTimeParseException ignored) {
-                return LocalDateTime.now();
-            }
-        }
-
-        return LocalDateTime.now();
     }
 
     private String serialize(GmailMessageResponse message) {

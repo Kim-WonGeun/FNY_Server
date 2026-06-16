@@ -1,6 +1,7 @@
 package com.mailservice.fny.mailbox.dto;
 
 import com.mailservice.fny.mailbox.entity.WeeklyMailReport;
+import com.mailservice.fny.mailbox.entity.WeeklyReportWorkspaceStatus;
 import java.time.format.DateTimeFormatter;
 
 public record WeeklyReportListItem(
@@ -23,7 +24,7 @@ public record WeeklyReportListItem(
                 ISO.format(entity.getPeriodEnd()),
                 entity.getEmailCount(),
                 ISO.format(entity.getCreatedAt()),
-                "NONE"
+                WeeklyReportWorkspaceStatus.NONE
         );
     }
 

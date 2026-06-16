@@ -10,9 +10,7 @@ import com.mailservice.fny.mailbox.dto.EmailDetailResponse;
 import com.mailservice.fny.mailbox.dto.EmailLabelResponse;
 import com.mailservice.fny.mailbox.dto.EmailRecipientResponse;
 import com.mailservice.fny.mailbox.entity.EmailMessage;
-import com.mailservice.fny.mailbox.exception.MailboxNotFoundException;
 import com.mailservice.fny.mailbox.repository.EmailLabelRepository;
-import com.mailservice.fny.mailbox.repository.EmailMessageRepository;
 import com.mailservice.fny.mailbox.repository.EmailRecipientRepository;
 import java.util.List;
 import org.springframework.stereotype.Service;
@@ -22,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class MailboxDetailService {
 
-    private final EmailMessageRepository emailMessageRepository;
+    private final MailboxResourceResolver mailboxResourceResolver;
     private final EmailRecipientRepository emailRecipientRepository;
     private final EmailAnalysisRepository emailAnalysisRepository;
     private final EmailActionItemRepository emailActionItemRepository;
@@ -31,7 +29,7 @@ public class MailboxDetailService {
     private final EmailDetailResponseMapper emailDetailResponseMapper;
 
     public MailboxDetailService(
-            EmailMessageRepository emailMessageRepository,
+            MailboxResourceResolver mailboxResourceResolver,
             EmailRecipientRepository emailRecipientRepository,
             EmailAnalysisRepository emailAnalysisRepository,
             EmailActionItemRepository emailActionItemRepository,
@@ -39,7 +37,7 @@ public class MailboxDetailService {
             AnalysisJobRepository analysisJobRepository,
             EmailDetailResponseMapper emailDetailResponseMapper
     ) {
-        this.emailMessageRepository = emailMessageRepository;
+        this.mailboxResourceResolver = mailboxResourceResolver;
         this.emailRecipientRepository = emailRecipientRepository;
         this.emailAnalysisRepository = emailAnalysisRepository;
         this.emailActionItemRepository = emailActionItemRepository;
@@ -49,8 +47,7 @@ public class MailboxDetailService {
     }
 
     public EmailDetailResponse getEmailDetail(String emailId) {
-        EmailMessage email = emailMessageRepository.findWithMailAccountById(emailId)
-                .orElseThrow(() -> new MailboxNotFoundException("메일을 찾을 수 없습니다. id=" + emailId));
+        EmailMessage email = mailboxResourceResolver.getRequiredEmailWithMailAccount(emailId);
 
         EmailAnalysisResponse analysis = emailAnalysisRepository.findByEmailIdAndIsLatestTrue(emailId)
                 .map(EmailAnalysisResponse::from)
@@ -86,9 +83,7 @@ public class MailboxDetailService {
     }
 
     public List<EmailAnalysisResponse> getEmailAnalyses(String emailId) {
-        if (!emailMessageRepository.existsById(emailId)) {
-            throw new MailboxNotFoundException("메일을 찾을 수 없습니다. id=" + emailId);
-        }
+        mailboxResourceResolver.ensureEmailExists(emailId);
         return emailAnalysisRepository.findByEmailIdOrderByAnalysisVersionDesc(emailId).stream()
                 .map(EmailAnalysisResponse::from)
                 .toList();

@@ -8,7 +8,7 @@ import org.springframework.http.HttpStatus;
 
 class GlobalExceptionHandlerTest {
 
-    private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+    private final GlobalExceptionHandler handler = new GlobalExceptionHandler(new GmailApiErrorMapper());
 
     @Test
     void gmailScopeFailureReturnsStableCode() {

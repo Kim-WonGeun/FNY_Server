@@ -2,6 +2,7 @@ package com.mailservice.fny.mailbox.controller;
 
 import com.mailservice.fny.mailbox.dto.WeeklyReportListItem;
 import com.mailservice.fny.mailbox.dto.WeeklyReportResponse;
+import com.mailservice.fny.mailbox.entity.WeeklyMailReportType;
 import com.mailservice.fny.mailbox.service.WeeklyReportService;
 import java.time.LocalDate;
 import java.util.List;
@@ -27,7 +28,7 @@ public class WeeklyReportController {
             @PathVariable String userId,
             @PathVariable String mailAccountId,
             @RequestParam(defaultValue = "7") int days,
-            @RequestParam(defaultValue = "WEEKLY") String reportType,
+            @RequestParam(defaultValue = WeeklyMailReportType.WEEKLY) String reportType,
             @RequestParam(required = false) LocalDate startDate,
             @RequestParam(required = false) LocalDate endDate
     ) {

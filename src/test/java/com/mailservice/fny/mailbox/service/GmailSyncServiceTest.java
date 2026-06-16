@@ -19,6 +19,7 @@ import com.mailservice.fny.mailbox.entity.MailAccount;
 import com.mailservice.fny.mailbox.repository.AppUserRepository;
 import com.mailservice.fny.mailbox.repository.EmailMessageRepository;
 import com.mailservice.fny.mailbox.repository.MailAccountRepository;
+import com.mailservice.fny.mailbox.repository.WeeklyMailReportRepository;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -37,13 +38,19 @@ class GmailSyncServiceTest {
     private final TransactionTemplate transactionTemplate = mock(TransactionTemplate.class);
     private final MailboxDeduplicationService deduplicationService = mock(MailboxDeduplicationService.class);
     private final GmailEmailPersistenceService gmailEmailPersistenceService = mock(GmailEmailPersistenceService.class);
+    private final WeeklyMailReportRepository weeklyMailReportRepository = mock(WeeklyMailReportRepository.class);
 
     private GmailSyncService service;
 
     @BeforeEach
     void setUp() {
         service = new GmailSyncService(
-                appUserRepository,
+                new MailboxResourceResolver(
+                        new MailboxUserValidator(appUserRepository),
+                        emailMessageRepository,
+                        mailAccountRepository,
+                        weeklyMailReportRepository
+                ),
                 mailAccountRepository,
                 emailMessageRepository,
                 gmailClient,

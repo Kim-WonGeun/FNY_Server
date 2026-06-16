@@ -49,7 +49,7 @@ public class MailAccountController {
 
     @GetMapping("/me/mail-accounts")
     public List<MailAccountResponse> getMyMailAccounts(Authentication authentication, HttpServletRequest request) {
-        return mailAccountQueryService.getMailAccounts(currentUserService.resolveUserId(authentication, request));
+        return mailAccountQueryService.getMailAccounts(resolveUserId(authentication, request));
     }
 
     @PostMapping("/me/mail-accounts/{mailAccountId}/sync")
@@ -59,6 +59,10 @@ public class MailAccountController {
             @PathVariable String mailAccountId,
             @RequestParam(defaultValue = "0") int limit
     ) {
-        return gmailSyncService.sync(currentUserService.resolveUserId(authentication, request), mailAccountId, limit);
+        return gmailSyncService.sync(resolveUserId(authentication, request), mailAccountId, limit);
+    }
+
+    private String resolveUserId(Authentication authentication, HttpServletRequest request) {
+        return currentUserService.resolveUserId(authentication, request);
     }
 }

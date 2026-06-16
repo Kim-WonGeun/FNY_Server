@@ -66,8 +66,9 @@ public class InboxController {
             @RequestParam(required = false) LocalDate endDate,
             @RequestParam(defaultValue = "false") boolean searchBody
     ) {
+        String userId = resolveUserId(authentication, request);
         return inboxService.getInbox(
-                currentUserService.resolveUserId(authentication, request),
+                userId,
                 unreadOnly,
                 highPriorityOnly,
                 needsReplyOnly,
@@ -81,6 +82,10 @@ public class InboxController {
 
     @GetMapping("/me/overview")
     public MailboxOverviewResponse getMyOverview(Authentication authentication, HttpServletRequest request) {
-        return mailboxOverviewService.getOverview(currentUserService.resolveUserId(authentication, request));
+        return mailboxOverviewService.getOverview(resolveUserId(authentication, request));
+    }
+
+    private String resolveUserId(Authentication authentication, HttpServletRequest request) {
+        return currentUserService.resolveUserId(authentication, request);
     }
 }

@@ -1,8 +1,6 @@
 package com.mailservice.fny.mailbox.service;
 
 import com.mailservice.fny.mailbox.dto.EmailListResponse;
-import com.mailservice.fny.mailbox.exception.MailboxNotFoundException;
-import com.mailservice.fny.mailbox.repository.AppUserRepository;
 import com.mailservice.fny.mailbox.repository.EmailMessageRepository;
 import java.time.LocalDate;
 import java.util.List;
@@ -13,16 +11,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class InboxService {
 
-    private final AppUserRepository appUserRepository;
+    private final MailboxUserValidator mailboxUserValidator;
     private final EmailMessageRepository emailMessageRepository;
     private final InboxEmailFilter inboxEmailFilter;
 
     public InboxService(
-            AppUserRepository appUserRepository,
+            MailboxUserValidator mailboxUserValidator,
             EmailMessageRepository emailMessageRepository,
             InboxEmailFilter inboxEmailFilter
     ) {
-        this.appUserRepository = appUserRepository;
+        this.mailboxUserValidator = mailboxUserValidator;
         this.emailMessageRepository = emailMessageRepository;
         this.inboxEmailFilter = inboxEmailFilter;
     }
@@ -38,7 +36,7 @@ public class InboxService {
             LocalDate endDate,
             boolean searchBody
     ) {
-        ensureUserExists(userId);
+        mailboxUserValidator.ensureExists(userId);
         return emailMessageRepository.findMailboxByUserId(userId).stream()
                 .filter(email -> inboxEmailFilter.matches(
                         email,
@@ -53,11 +51,5 @@ public class InboxService {
                 ))
                 .map(EmailListResponse::from)
                 .toList();
-    }
-
-    private void ensureUserExists(String userId) {
-        if (!appUserRepository.existsById(userId)) {
-            throw new MailboxNotFoundException("사용자를 찾을 수 없습니다. id=" + userId);
-        }
     }
 }
