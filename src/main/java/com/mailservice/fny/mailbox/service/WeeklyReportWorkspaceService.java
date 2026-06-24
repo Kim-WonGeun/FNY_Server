@@ -1,6 +1,5 @@
 package com.mailservice.fny.mailbox.service;
 
-import com.mailservice.fny.common.IdGenerator;
 import com.mailservice.fny.mailbox.dto.WeeklyReportWorkspaceRequest;
 import com.mailservice.fny.mailbox.dto.WeeklyReportWorkspaceResponse;
 import com.mailservice.fny.mailbox.dto.WeeklyReportWorkspaceStatusRequest;
@@ -10,9 +9,7 @@ import com.mailservice.fny.mailbox.entity.WeeklyReportWorkspaceStatus;
 import com.mailservice.fny.mailbox.entity.WeeklyReportWorkspace;
 import com.mailservice.fny.mailbox.exception.MailboxNotFoundException;
 import com.mailservice.fny.mailbox.repository.WeeklyReportWorkspaceRepository;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,39 +22,23 @@ public class WeeklyReportWorkspaceService {
     private final MailboxResourceResolver mailboxResourceResolver;
     private final WeeklyReportWorkspaceRepository weeklyReportWorkspaceRepository;
     private final WeeklyReportWorkspaceMapper weeklyReportWorkspaceMapper;
-    private final IdGenerator idGenerator;
+    private final WeeklyReportWorkspaceFactory weeklyReportWorkspaceFactory;
+    private final WeeklyReportWorkspaceSourceIdsCodec sourceIdsCodec;
 
     public WeeklyReportWorkspaceService(
             MailboxUserValidator mailboxUserValidator,
             MailboxResourceResolver mailboxResourceResolver,
             WeeklyReportWorkspaceRepository weeklyReportWorkspaceRepository,
             WeeklyReportWorkspaceMapper weeklyReportWorkspaceMapper,
-            IdGenerator idGenerator
+            WeeklyReportWorkspaceFactory weeklyReportWorkspaceFactory,
+            WeeklyReportWorkspaceSourceIdsCodec sourceIdsCodec
     ) {
         this.mailboxUserValidator = mailboxUserValidator;
         this.mailboxResourceResolver = mailboxResourceResolver;
         this.weeklyReportWorkspaceRepository = weeklyReportWorkspaceRepository;
         this.weeklyReportWorkspaceMapper = weeklyReportWorkspaceMapper;
-        this.idGenerator = idGenerator;
-    }
-
-    public Map<String, String> findActiveStatuses(String userId, List<WeeklyMailReport> reports) {
-        if (reports.isEmpty()) {
-            return Map.of();
-        }
-
-        return weeklyReportWorkspaceRepository
-                .findByReportIdInAndUserId(reports.stream().map(WeeklyMailReport::getId).toList(), userId)
-                .stream()
-                .filter(workspace -> !WeeklyReportWorkspaceStatus.ARCHIVED.equals(workspace.getSaveStatus()))
-                .collect(HashMap::new, (map, workspace) -> map.put(workspace.getReport().getId(), workspace.getSaveStatus()), HashMap::putAll);
-    }
-
-    public Optional<WeeklyReportWorkspaceResponse> getWorkspace(String userId, String reportId) {
-        ensureReportAccess(userId, reportId);
-        return weeklyReportWorkspaceRepository.findByReportIdAndUserId(reportId, userId)
-                .filter(workspace -> !WeeklyReportWorkspaceStatus.ARCHIVED.equals(workspace.getSaveStatus()))
-                .map(weeklyReportWorkspaceMapper::toResponse);
+        this.weeklyReportWorkspaceFactory = weeklyReportWorkspaceFactory;
+        this.sourceIdsCodec = sourceIdsCodec;
     }
 
     @Transactional
@@ -69,21 +50,23 @@ public class WeeklyReportWorkspaceService {
         AppUser user = mailboxUserValidator.getRequiredUser(userId);
         WeeklyMailReport report = ensureReportAccess(userId, reportId);
         String saveStatus = WeeklyReportWorkspaceStatus.normalizeSaveStatus(request.saveStatus());
-        List<String> excludedSourceIds = weeklyReportWorkspaceMapper.normalizeExcludedSourceIds(request.excludedSourceIds());
-        String excludedJson = weeklyReportWorkspaceMapper.serializeExcludedSourceIds(excludedSourceIds);
+        List<String> excludedSourceIds = sourceIdsCodec.normalize(request.excludedSourceIds());
+        String excludedJson = sourceIdsCodec.serialize(excludedSourceIds);
 
         WeeklyReportWorkspace workspace = weeklyReportWorkspaceRepository.findByReportIdAndUserId(reportId, userId)
-                .orElseGet(() -> new WeeklyReportWorkspace(
-                        idGenerator.generate("WKS"),
+                .map(existing -> {
+                    existing.update(request.draftText(), saveStatus, excludedJson);
+                    return existing;
+                })
+                .orElseGet(() -> weeklyReportWorkspaceFactory.create(
                         report,
                         user,
                         request.draftText(),
                         saveStatus,
                         excludedJson
-                ));
-        workspace.update(request.draftText(), saveStatus, excludedJson);
+        ));
         WeeklyReportWorkspace saved = weeklyReportWorkspaceRepository.save(workspace);
-        return WeeklyReportWorkspaceResponse.from(saved, excludedSourceIds);
+        return weeklyReportWorkspaceMapper.toResponse(saved, excludedSourceIds);
     }
 
     @Transactional
@@ -98,7 +81,7 @@ public class WeeklyReportWorkspaceService {
         String saveStatus = WeeklyReportWorkspaceStatus.normalizeStatusUpdate(request.saveStatus());
         workspace.update(workspace.getDraftText(), saveStatus, workspace.getExcludedSourceIds());
         WeeklyReportWorkspace saved = weeklyReportWorkspaceRepository.save(workspace);
-        if (WeeklyReportWorkspaceStatus.ARCHIVED.equals(saveStatus)) {
+        if (WeeklyReportWorkspaceStatus.isArchived(saveStatus)) {
             return Optional.empty();
         }
         return Optional.of(weeklyReportWorkspaceMapper.toResponse(saved));

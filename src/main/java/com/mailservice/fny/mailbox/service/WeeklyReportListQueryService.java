@@ -12,19 +12,19 @@ import org.springframework.stereotype.Service;
 public class WeeklyReportListQueryService {
 
     private final WeeklyMailReportRepository weeklyMailReportRepository;
-    private final WeeklyReportWorkspaceService weeklyReportWorkspaceService;
+    private final WeeklyReportWorkspaceQueryService workspaceQueryService;
 
     public WeeklyReportListQueryService(
             WeeklyMailReportRepository weeklyMailReportRepository,
-            WeeklyReportWorkspaceService weeklyReportWorkspaceService
+            WeeklyReportWorkspaceQueryService workspaceQueryService
     ) {
         this.weeklyMailReportRepository = weeklyMailReportRepository;
-        this.weeklyReportWorkspaceService = weeklyReportWorkspaceService;
+        this.workspaceQueryService = workspaceQueryService;
     }
 
     public List<WeeklyReportListItem> findListItems(String userId, String mailAccountId) {
         List<WeeklyMailReport> reports = weeklyMailReportRepository.findTop20ByMailAccountIdOrderByCreatedAtDesc(mailAccountId);
-        Map<String, String> workspaceStatuses = weeklyReportWorkspaceService.findActiveStatuses(userId, reports);
+        Map<String, String> workspaceStatuses = workspaceQueryService.findActiveStatuses(userId, reports);
 
         return reports.stream()
                 .map(report -> WeeklyReportListItem.from(

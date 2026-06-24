@@ -4,6 +4,7 @@ import com.mailservice.fny.auth.service.CurrentUserService;
 import com.mailservice.fny.mailbox.dto.WeeklyReportWorkspaceRequest;
 import com.mailservice.fny.mailbox.dto.WeeklyReportWorkspaceResponse;
 import com.mailservice.fny.mailbox.dto.WeeklyReportWorkspaceStatusRequest;
+import com.mailservice.fny.mailbox.service.WeeklyReportWorkspaceQueryService;
 import com.mailservice.fny.mailbox.service.WeeklyReportWorkspaceService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -22,13 +23,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class WeeklyReportWorkspaceController {
 
     private final WeeklyReportWorkspaceService weeklyReportWorkspaceService;
+    private final WeeklyReportWorkspaceQueryService weeklyReportWorkspaceQueryService;
     private final CurrentUserService currentUserService;
 
     public WeeklyReportWorkspaceController(
             WeeklyReportWorkspaceService weeklyReportWorkspaceService,
+            WeeklyReportWorkspaceQueryService weeklyReportWorkspaceQueryService,
             CurrentUserService currentUserService
     ) {
         this.weeklyReportWorkspaceService = weeklyReportWorkspaceService;
+        this.weeklyReportWorkspaceQueryService = weeklyReportWorkspaceQueryService;
         this.currentUserService = currentUserService;
     }
 
@@ -39,7 +43,7 @@ public class WeeklyReportWorkspaceController {
             @PathVariable String reportId
     ) {
         String userId = resolveUserId(authentication, request);
-        return weeklyReportWorkspaceService
+        return weeklyReportWorkspaceQueryService
                 .getWorkspace(userId, reportId)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.noContent().build());

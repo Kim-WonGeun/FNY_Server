@@ -24,4 +24,12 @@ public final class WeeklyReportWorkspaceStatus {
         }
         return normalizeSaveStatus(saveStatus);
     }
+
+    public static boolean isArchived(String saveStatus) {
+        return ARCHIVED.equals(saveStatus);
+    }
+
+    public static boolean isActive(String saveStatus) {
+        return !isArchived(saveStatus);
+    }
 }
